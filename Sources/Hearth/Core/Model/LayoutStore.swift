@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Observation
 
 /// The window's pane layout: which areas are open, how they are split and which have
@@ -20,8 +21,44 @@ final class LayoutStore {
     }
     /// Pane filling the whole window (double-click on a pane header), nil = normal layout.
     var maximizedPane: UUID?
+    /// The one drop preview shown while a pane is dragged: a zone of one pane or a window edge.
+    /// Kept in one place so a preview can't linger in a pane SwiftUI forgot to tell about the exit.
+    private(set) var dropHover: DropHover?
+    @ObservationIgnored private var dropWatch: Task<Void, Never>?
+
+    struct DropHover: Equatable {
+        let pane: UUID
+        let zone: DropZone
+    }
+
     /// Window-edge drop preview shown over the whole layout while dragging.
-    var windowDropZone: DropZone?
+    var windowDropZone: DropZone? { dropHover.flatMap { $0.zone.isWindowEdge ? $0.zone : nil } }
+
+    /// Shows the preview for `zone` of `pane`. While one is shown, a watcher clears it once the
+    /// mouse button is up: SwiftUI doesn't always report the end of a drag (quick moves between
+    /// panes, a drop outside any pane, Escape).
+    func hoverDrop(_ zone: DropZone, over pane: UUID, buttonDown: @escaping @MainActor () -> Bool = LayoutStore.mouseButtonDown) {
+        let hover = DropHover(pane: pane, zone: zone)
+        if dropHover != hover { dropHover = hover }
+        guard dropWatch == nil else { return }
+        dropWatch = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(150))
+                guard let self, !Task.isCancelled else { return }
+                if !buttonDown() { self.endDropHover(); return }
+            }
+        }
+    }
+
+    /// The drag left `pane` (ignored if it is already over another one) or ended (`pane` nil).
+    func endDropHover(leaving pane: UUID? = nil) {
+        if let pane, dropHover?.pane != pane { return }
+        dropHover = nil
+        dropWatch?.cancel()
+        dropWatch = nil
+    }
+
+    static func mouseButtonDown() -> Bool { NSEvent.pressedMouseButtons & 1 != 0 }
     /// Tabs currently shown in their own window (opened via openWindow(value:)).
     var detachedTabs: Set<InspectorTab> = [] {
         didSet { if !quitting { UIStateStore.save(detachedTabs.map(\.rawValue).sorted(), as: .detachedTabs) } }

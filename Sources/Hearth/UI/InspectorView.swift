@@ -84,7 +84,6 @@ struct PaneView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
     let pane: InspectorPane
-    private let dropZone = State(initialValue: LayoutStore.DropZone?.none)
 
     private var zoomArea: TextArea { .pane(pane.id, pane.tab) }
 
@@ -104,7 +103,7 @@ struct PaneView: View {
                     .onChange(of: g.frame(in: .global)) { _, f in PaneSizes.shared[pane.id] = f }
             }
         }
-        .onDrop(of: [.plainText], delegate: PaneDropDelegate(target: pane.id, zone: dropZone, model: model))
+        .onDrop(of: [.plainText], delegate: PaneDropDelegate(target: pane.id, model: model))
     }
 
     // MARK: Header (drag handle)
@@ -175,7 +174,8 @@ struct PaneView: View {
 
     @ViewBuilder
     private var dropHighlight: some View {
-        if let zone = dropZone.wrappedValue, !zone.isWindowEdge {
+        if let hover = model.layout.dropHover, hover.pane == pane.id, !hover.zone.isWindowEdge {
+            let zone = hover.zone
             GeometryReader { geo in
                 let r = Self.rect(for: zone, in: geo.size)
                 RoundedRectangle(cornerRadius: 6)
@@ -245,7 +245,6 @@ struct PaneView: View {
 /// Decides left/right/top/bottom/center from the pointer position (outer 30 % = edge, middle = swap).
 private struct PaneDropDelegate: DropDelegate {
     let target: UUID
-    let zone: State<LayoutStore.DropZone?>
     let model: AppModel
 
     /// Outer 30 % of a pane = dock beside it, middle = swap. Within 32 pt of a pane side that is
@@ -273,21 +272,17 @@ private struct PaneDropDelegate: DropDelegate {
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
         guard model.editor.draggingTab == nil else { return DropProposal(operation: .forbidden) }
-        let z = zoneFor(info, frame: PaneSizes.shared[target])
-        zone.wrappedValue = z
-        model.layout.windowDropZone = z.isWindowEdge ? z : nil
+        model.layout.hoverDrop(zoneFor(info, frame: PaneSizes.shared[target]), over: target)
         return DropProposal(operation: .move)
     }
 
     func dropExited(info: DropInfo) {
-        zone.wrappedValue = nil
-        model.layout.windowDropZone = nil
+        model.layout.endDropHover(leaving: target)
     }
 
     func performDrop(info: DropInfo) -> Bool {
         let z = zoneFor(info, frame: PaneSizes.shared[target])
-        zone.wrappedValue = nil
-        model.layout.windowDropZone = nil
+        model.layout.endDropHover()
         guard let provider = info.itemProviders(for: [.plainText]).first else { return false }
         _ = provider.loadObject(ofClass: NSString.self) { obj, _ in
             guard let s = obj as? String, s.hasPrefix(paneDragPrefix),
