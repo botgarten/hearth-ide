@@ -47,6 +47,14 @@ applies to agents, Build & Deployment and Git.
 
 **Language:** English by default; German under Settings › General › Language.
 
+**Themes:** macOS light/dark, Hearth Light, Darcula and Storm (Settings › General ›
+Theme); the own themes also colour the editor, the syntax and the terminals.
+
+**Search Everywhere:** press Shift twice, like in IntelliJ IDEA. Searches files,
+symbols, text, the agents' chats, sessions, tests and actions; Tab switches the
+category. ⇧⌘O goes to a file, ⇧⌘F searches text, ⇧⌘A finds an action. Text hits
+open the file with the term marked.
+
 > **Status:** next up is a native chat over ACP (Agent Client Protocol).
 > Details: [PLAN.md](PLAN.md), structure: [architecture](docs/architecture.md).
 

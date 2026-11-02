@@ -54,6 +54,41 @@ enum Snapshotter {
                let md = try? String(contentsOfFile: path, encoding: .utf8) {
                 views.append(("markdown", AnyView(ScrollView { MarkdownBlocks(text: md).environment(\.markdownMono, true).padding(16) }), CGSize(width: 760, height: 900)))
             }
+            let env = ProcessInfo.processInfo.environment
+            // HEARTH_SNAPSHOT_HIGHLIGHT=<term>[:<line>]: the active editor file with the term marked.
+            if let raw = env["HEARTH_SNAPSHOT_HIGHLIGHT"],
+               let file = env["HEARTH_SNAPSHOT_PREVIEW"]?.split(separator: ",").last.map({ URL(fileURLWithPath: String($0)) }) {
+                // After the session was selected (that swaps the editor tabs).
+                let parts = raw.split(separator: ":", maxSplits: 1).map(String.init)
+                model.editor.open(file, line: parts.count > 1 ? Int(parts[1]) : nil, highlight: parts[0])
+                try? await Task.sleep(for: .seconds(1))
+            }
+            // HEARTH_SNAPSHOT_THEMES=1: the main window in every own theme.
+            if env["HEARTH_SNAPSHOT_THEMES"] != nil {
+                for theme in AppAppearance.allCases where theme.palette != nil {
+                    ThemeStore.shared.appearance = theme
+                    render(ContentView().hearthTheme().environment(model), size: CGSize(width: 1400, height: 860),
+                           dark: theme.isDark == true, to: dir.appendingPathComponent("theme-\(theme.rawValue).png"))
+                }
+                ThemeStore.shared.appearance = .system
+            }
+            // HEARTH_SNAPSHOT_SEARCH=<scope>:<query>[@<root>]: Search Everywhere over the main window.
+            if let raw = env["HEARTH_SNAPSHOT_SEARCH"] {
+                var spec = raw
+                if let at = raw.lastIndex(of: "@") {
+                    model.search.rootOverride = String(raw[raw.index(after: at)...])
+                    spec = String(raw[..<at])
+                }
+                let parts = spec.split(separator: ":", maxSplits: 1).map(String.init)
+                model.search.open(SearchScope(rawValue: parts[0]) ?? .all)
+                model.search.query = parts.count > 1 ? parts[1] : ""
+                try? await Task.sleep(for: .seconds(2))
+                for dark in [false, true] {
+                    render(ContentView().environment(model), size: CGSize(width: 1400, height: 860), dark: dark,
+                           to: dir.appendingPathComponent("search-\(parts[0])-\(dark ? "dark" : "light").png"))
+                }
+                model.search.close()
+            }
             for (name, view, size) in views {
                 for dark in [false, true] {
                     render(view.environment(model), size: size, dark: dark,

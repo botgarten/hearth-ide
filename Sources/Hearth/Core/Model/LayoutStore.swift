@@ -217,6 +217,13 @@ final class LayoutStore {
         if !paneTree.contains(tab: tab) { addPane(tab) }
     }
 
+    /// Makes an area visible: leaves it where it is if open (or in its own window), adds it otherwise.
+    func show(_ tab: InspectorTab) {
+        if let maximized = maximizedPane, paneTree.pane(maximized)?.tab != tab { maximizedPane = nil }
+        guard !paneTree.contains(tab: tab), !detachedTabs.contains(tab) else { return }
+        addPane(tab)
+    }
+
     func setTab(_ tab: InspectorTab, for id: UUID) {
         paneTree = paneTree.updating(id, tab: tab)
     }

@@ -24,7 +24,8 @@ struct AgentRunView: View {
             }
             ZStack {
                 if run.terminal != nil || run.launchCount > 0 {
-                    AgentTerminalHost(run: run, launchCount: run.launchCount, dark: colorScheme == .dark, scale: scale)
+                    AgentTerminalHost(run: run, launchCount: run.launchCount, dark: colorScheme == .dark, scale: scale,
+                                      theme: ThemeStore.shared.appearance)
                 } else {
                     resumePlaceholder
                 }
@@ -155,6 +156,7 @@ struct AgentTerminalHost: NSViewRepresentable {
     let launchCount: Int
     let dark: Bool
     let scale: Double
+    var theme: AppAppearance = .system
 
     func makeNSView(context: Context) -> NSView {
         let container = NSView()
@@ -175,9 +177,10 @@ struct AgentTerminalHost: NSViewRepresentable {
             container.addSubview(terminal)
             DispatchQueue.main.async { terminal.window?.makeFirstResponder(terminal) }
         }
-        if run.themedDark != dark || run.themedScale != scale {
+        if run.themedDark != dark || run.themedScale != scale || run.themedTheme != theme {
             TerminalTheme.apply(to: terminal, dark: dark, scale: scale)
             run.themedDark = dark
+            run.themedTheme = theme
             run.themedScale = scale
         }
     }

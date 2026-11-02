@@ -642,3 +642,39 @@
 "Lines %lld–%lld" = "Zeile %lld–%lld";
 
 "File access denied in the sandbox: %@. Allow the folder in Settings › Sandbox, then run the task again." = "Dateizugriff in der Sandbox verweigert: %@. Gib den Ordner unter Einstellungen › Sandbox frei und starte die Aufgabe neu.";
+
+/* Themes and Search Everywhere */
+"Action" = "Aktion";
+"Actions" = "Aktionen";
+"Agent session" = "Agent-Sitzung";
+"Check for updates" = "Nach Updates suchen";
+"Class, function or type" = "Klasse, Funktion oder Typ";
+"File name or path" = "Dateiname oder Pfad";
+"Files" = "Dateien";
+"Find Action…" = "Aktion suchen …";
+"Find in Files…" = "In Dateien suchen …";
+"Git: Pull" = "Git: Pull";
+"Go to File…" = "Gehe zu Datei …";
+"Hearth Light, Darcula and Storm also colour the editor, the syntax and the terminals. With iTerm2 as your terminal, the macOS themes keep your iTerm2 colours." = "Hearth Light, Darcula und Storm färben auch Editor, Syntax und Terminals ein. Mit iTerm2 als Terminal behalten die macOS-Themes deine iTerm2-Farben.";
+"Layout: %@" = "Layout: %@";
+"Navigate" = "Navigieren";
+"Nothing found" = "Nichts gefunden";
+"Pull finished" = "Pull abgeschlossen";
+"Refresh workspace" = "Arbeitsbereich aktualisieren";
+"Search Everywhere (⇧⇧)" = "Überall suchen (⇧⇧)";
+"Search files, symbols, sessions, chat, tests and actions" = "Dateien, Symbole, Sitzungen, Chat, Tests und Aktionen durchsuchen";
+"Select an agent session to search its folder." = "Wähle eine Agent-Sitzung, um ihren Ordner zu durchsuchen.";
+"Settings…" = "Einstellungen …";
+"Show %@" = "%@ anzeigen";
+"Symbols" = "Symbole";
+"Test name" = "Testname";
+"Text" = "Text";
+"Text in the agents' chats" = "Text in den Chats der Agenten";
+"Text in the project's files" = "Text in den Dateien des Projekts";
+"Theme" = "Theme";
+"Theme: %@" = "Theme: %@";
+"Type a name." = "Gib einen Namen ein.";
+"Type at least two characters." = "Gib mindestens zwei Zeichen ein.";
+"macOS Dark" = "macOS Dunkel";
+"macOS Light" = "macOS Hell";
+"⇥ next category" = "⇥ nächste Kategorie";

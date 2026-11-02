@@ -4,6 +4,7 @@ import AppKit
 /// Left column: every agent session, the ones that need attention first.
 struct InboxView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.themePalette) private var palette
     private let onlyAttention = State(initialValue: false)
 
     var body: some View {
@@ -57,7 +58,7 @@ struct InboxView: View {
         .listStyle(.sidebar)
         // Opaque like every other pane; the sidebar style alone draws a translucent vibrancy material.
         .scrollContentBackground(.hidden)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color(nsColor: palette?.window ?? .windowBackgroundColor))
     }
 }
 

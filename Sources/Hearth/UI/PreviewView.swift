@@ -384,7 +384,7 @@ private struct EditorDocumentView: View {
             case .tooLarge: ContentUnavailableView("File too large to show", systemImage: "doc")
             case .image:
                 ScrollView([.horizontal, .vertical]) { if let img = doc.image { Image(nsImage: img) } }
-            case .markdown where showRendered.wrappedValue:
+            case .markdown where showRendered.wrappedValue && group.highlight == nil:
                 ScrollView {
                     MarkdownBlocks(text: doc.text)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -395,6 +395,7 @@ private struct EditorDocumentView: View {
                            language: doc.language,
                            editable: true,
                            highlightLine: group.line,
+                           searchTerm: group.highlight,
                            fontSize: 12 * scale,
                             onCommandClick: { symbol, qualifier in
                                 activate()

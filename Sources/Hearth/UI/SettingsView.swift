@@ -104,13 +104,16 @@ private struct GeneralSettings: View {
                 }
             }
             Section("Appearance") {
-                Picker("Appearance", selection: Binding(get: { appearance.wrappedValue }, set: {
+                Picker("Theme", selection: Binding(get: { appearance.wrappedValue }, set: {
                     appearance.wrappedValue = $0
                     AppAppearance.current = $0
                 })) {
-                    ForEach(AppAppearance.allCases) { Text($0.title).tag($0) }
+                    ForEach([AppAppearance.system, .light, .dark]) { Text($0.title).tag($0) }
+                    Divider()
+                    ForEach([AppAppearance.hearthLight, .darcula, .storm]) { Text($0.title).tag($0) }
                 }
-                .pickerStyle(.segmented)
+                Text("Hearth Light, Darcula and Storm also colour the editor, the syntax and the terminals. With iTerm2 as your terminal, the macOS themes keep your iTerm2 colours.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Terminal") {
                 Picker("External terminal", selection: Binding(get: { terminal.wrappedValue }, set: {

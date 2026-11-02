@@ -19,6 +19,8 @@ final class AppModel {
     let ci: CIAccounts
     /// CI/CD pane of the workspace folder (all inspector panes show the same folder).
     let pipelines: PipelinesStore
+    /// Search Everywhere (double Shift).
+    let search = SearchEverywhereStore()
 
     /// The user's sandbox rules (domains, ports, folders, projects, credentials).
     private(set) var sandboxSettings = SandboxSettings.load()
@@ -66,6 +68,7 @@ final class AppModel {
             let what = run.status == .needsInput ? String(localized: "is waiting for you") : String(localized: "is done")
             Notifier.notify(title: run.title, body: "\(run.kind.displayName) \(what)" + (run.detail.map { ": \($0)" } ?? "."))
         }
+        search.model = self
         agents.onFilesChanged = { [weak self] run in
             guard let self, self.workspaceRoot == run.directory else { return }
             self.workspace.revision += 1

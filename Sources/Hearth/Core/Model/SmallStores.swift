@@ -24,6 +24,14 @@ final class WorkspaceState {
     let dragToken = UUID()
     /// Empty clone targets created by this app instance may be retried, never arbitrary folders.
     var cloneDirectories: Set<String> = []
+    /// A test to show in the Tests pane (from Search Everywhere).
+    var testFocus: TestFocus?
+
+    struct TestFocus: Equatable {
+        var id: String
+        var name: String
+        var token = UUID()
+    }
 
     /// An explicit reload (refresh button, session switch): everything follows at once.
     func refreshNow() {

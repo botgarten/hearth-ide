@@ -33,6 +33,7 @@ final class AgentRun: Identifiable {
     @ObservationIgnored fileprivate var delegate: AgentTerminalDelegate?
     @ObservationIgnored fileprivate var eventOffset: UInt64 = 0
     @ObservationIgnored var themedDark: Bool?
+    @ObservationIgnored var themedTheme: AppAppearance?
 
     init(id: String = UUID().uuidString.lowercased(), kind: AgentKind, directory: String, purpose: Purpose = .session,
          title: String? = nil, sessionID: String? = nil, created: Date = Date(), updated: Date = Date()) {
@@ -208,6 +209,7 @@ final class AgentHost {
         }
         TerminalTheme.apply(to: view, dark: dark, scale: 1)
         run.themedDark = dark
+        run.themedTheme = ThemeStore.shared.appearance
         view.startProcess(executable: launch.executable, args: launch.arguments, environment: launch.environment,
                           execName: nil, currentDirectory: launch.directory)
         run.themedScale = 1

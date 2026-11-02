@@ -61,6 +61,10 @@ struct ContentView: View {
                 .help("Add areas, choose layouts – drag an area by its header to move it")
             }
         }
+        .overlay {
+            if model.search.isOpen { SearchEverywhereView() }
+        }
+        .onAppear { if Snapshotter.directory == nil { model.search.installShortcut() } }
         .overlay(alignment: .bottom) {
             if let banner = model.banner {
                 HStack {

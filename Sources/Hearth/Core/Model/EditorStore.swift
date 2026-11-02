@@ -29,6 +29,8 @@ final class EditorGroup {
     var file: URL? { didSet { UIStateStore.save(file?.path, as: .previewFile) } }
     var mode: PreviewMode = .file { didSet { UIStateStore.save(mode.rawValue, as: .previewMode) } }
     var line: Int?
+    /// Search term to mark in the shown file (from Search Everywhere); nil for a normal open.
+    var highlight: String?
     var back: [PreviewLocation] = []
     var forward: [PreviewLocation] = []
 
@@ -149,12 +151,17 @@ final class EditorStore {
         get { active.line }
         set { active.line = newValue }
     }
+    /// Term marked in the active editor's file.
+    var highlight: String? {
+        get { active.highlight }
+        set { active.highlight = newValue }
+    }
     var tabs: [URL] {
         get { active.tabs }
         set { active.tabs = newValue }
     }
 
-    func open(_ url: URL, mode: PreviewMode = .file, line: Int? = nil, recordHistory: Bool = true) {
+    func open(_ url: URL, mode: PreviewMode = .file, line: Int? = nil, highlight: String? = nil, recordHistory: Bool = true) {
         if file != url {
             invalidateDefinition()
         }
@@ -171,6 +178,7 @@ final class EditorStore {
         file = url
         self.mode = mode
         self.line = line
+        self.highlight = highlight
         if layout.editorPaneIDs.isEmpty, let last = layout.paneTree.panes.last {
             layout.split(last.id, axis: .vertical, tab: .preview)
         }

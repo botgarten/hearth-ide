@@ -8,6 +8,8 @@ struct CodeEditor: NSViewRepresentable {
     let language: SyntaxLanguage
     var editable = false
     var highlightLine: Int?
+    /// Marks every occurrence (case-insensitive) and selects the one on `highlightLine`.
+    var searchTerm: String?
     var fontSize: CGFloat = 12
     var onSave: (() -> Void)?
     /// ⌘-click on an identifier: (symbol, qualifier before a ".", if any).
@@ -48,7 +50,7 @@ struct CodeEditor: NSViewRepresentable {
         tv.isContinuousSpellCheckingEnabled = false
         tv.smartInsertDeleteEnabled = false
         tv.textContainerInset = NSSize(width: LineNumberGutter.width(for: fontSize) + 6, height: 6)
-        tv.backgroundColor = .textBackgroundColor
+        context.coordinator.applyTheme(context.environment.themePalette, to: tv)
         // No line wrapping: code reads better with horizontal scrolling. Without
         // maxSize/autoresizing the text view stays zero-width and draws nothing.
         tv.minSize = NSSize(width: 0, height: 0)
@@ -88,6 +90,7 @@ struct CodeEditor: NSViewRepresentable {
         tv.isEditable = editable
         if let key = stateKey { context.coordinator.restore(key, line: highlightLine) }
         else if let line = highlightLine { context.coordinator.reveal(line: line) }
+        context.coordinator.markSearch(searchTerm, line: highlightLine)
         if takesFocusFromPreviousEditor {
             // Tab switch while editing: hand keyboard focus to the new document's editor
             // (the previous editor was removed). Never steal focus from other inputs.
@@ -109,6 +112,10 @@ struct CodeEditor: NSViewRepresentable {
         (tv as? CodeTextView)?.language = language
         if !tv.string.isLiterallyEqual(to: text) || c.language != language {
             c.apply(text: text, language: language)
+            if let pending = c.pendingSearch, pending.term == searchTerm {
+                c.pendingSearch = nil
+                c.markSearch(pending.term, line: pending.line, force: true)
+            }
         }
         if c.hunks != hunks || c.selectedHunk != selectedHunk {
             c.hunks = hunks
@@ -118,6 +125,10 @@ struct CodeEditor: NSViewRepresentable {
             c.applyOverlays()
         }
         c.gutter?.onHunkClick = onHunkClick
+        if c.palette != context.environment.themePalette {
+            c.applyTheme(context.environment.themePalette, to: tv)
+            c.highlight()
+        }
         if c.fontSize != fontSize {
             c.fontSize = fontSize
             tv.font = Self.font(fontSize)
@@ -129,6 +140,9 @@ struct CodeEditor: NSViewRepresentable {
         if c.lastHighlightLine != highlightLine {
             c.lastHighlightLine = highlightLine
             if let line = highlightLine { c.reveal(line: line) }
+            c.markSearch(searchTerm, line: highlightLine, force: true)
+        } else if c.searchTerm != searchTerm {
+            c.markSearch(searchTerm, line: highlightLine)
         }
     }
 
@@ -145,7 +159,8 @@ struct CodeEditor: NSViewRepresentable {
     }
 
     static func color(_ kind: TokenKind) -> NSColor {
-        switch kind {
+        if let palette = ThemeStore.palette { return palette.syntax(kind) }
+        return switch kind {
         case .keyword: .systemPink
         case .type: .systemTeal
         case .string: .systemRed
@@ -160,8 +175,70 @@ struct CodeEditor: NSViewRepresentable {
         }
     }
 
+    /// Text colour without a token.
+    static var foreground: NSColor { ThemeStore.palette?.editorForeground ?? .labelColor }
+
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: CodeEditor
+        var palette: ThemePalette?
+        var searchTerm: String?
+        private var searchRanges: [NSRange] = []
+        /// A mark requested before the document's text arrived; applied with the text.
+        var pendingSearch: (term: String, line: Int?)?
+
+        /// Marks all occurrences of `term`, selects the one on `line` (else the first), scrolls
+        /// it into view and flashes it. Runs after layout, so it wins over restored scroll positions.
+        func markSearch(_ term: String?, line: Int?, force: Bool = false) {
+            guard force || term != searchTerm else { return }
+            searchTerm = term
+            DispatchQueue.main.async { [weak self] in self?.applySearch(term, line: line) }
+        }
+
+        private func applySearch(_ term: String?, line: Int?) {
+            guard let tv = textView, let lm = tv.layoutManager else { return }
+            let ns = tv.string as NSString
+            for r in searchRanges where NSMaxRange(r) <= ns.length {
+                lm.removeTemporaryAttribute(.backgroundColor, forCharacterRange: r)
+            }
+            searchRanges = []
+            guard let term, !term.isEmpty else { return }
+            guard ns.length > 0 else { pendingSearch = (term, line); return }
+            var ranges: [NSRange] = []
+            var search = NSRange(location: 0, length: ns.length)
+            while ranges.count < 5000 {
+                let r = ns.range(of: term, options: .caseInsensitive, range: search)
+                guard r.location != NSNotFound else { break }
+                ranges.append(r)
+                let next = NSMaxRange(r)
+                search = NSRange(location: next, length: ns.length - next)
+            }
+            let mark = NSColor.systemOrange.withAlphaComponent(0.35)
+            for r in ranges { lm.addTemporaryAttribute(.backgroundColor, value: mark, forCharacterRange: r) }
+            searchRanges = ranges
+            var lineRange: NSRange?
+            if let line, line > 0 {
+                var n = 0
+                ns.enumerateSubstrings(in: NSRange(location: 0, length: ns.length), options: [.byLines, .substringNotRequired]) { _, r, _, stop in
+                    n += 1
+                    if n == line { lineRange = r; stop.pointee = true }
+                }
+            }
+            let target = lineRange.flatMap { l in ranges.first { NSIntersectionRange($0, l).length > 0 } } ?? ranges.first
+            if let target {
+                tv.setSelectedRange(target)
+                tv.scrollRangeToVisible(target)
+                tv.showFindIndicator(for: target)
+            }
+        }
+
+        /// Editor colours of the theme (nil: system colours).
+        func applyTheme(_ palette: ThemePalette?, to tv: NSTextView) {
+            self.palette = palette
+            tv.backgroundColor = palette?.editorBackground ?? .textBackgroundColor
+            tv.insertionPointColor = palette?.caret ?? .textColor
+            tv.selectedTextAttributes = [.backgroundColor: palette?.selection ?? .selectedTextBackgroundColor]
+            gutter?.needsDisplay = true
+        }
         weak var textView: NSTextView?
         weak var gutter: LineNumberGutter?
         var language: SyntaxLanguage = .plain
@@ -237,7 +314,7 @@ struct CodeEditor: NSViewRepresentable {
             let italic = base.withItalic
             let bold = CodeEditor.font(fontSize, weight: .bold)
             storage.beginEditing()
-            storage.setAttributes([.font: base, .foregroundColor: NSColor.labelColor], range: full)
+            storage.setAttributes([.font: base, .foregroundColor: CodeEditor.foreground], range: full)
             for t in tokens where NSMaxRange(t.range) <= storage.length {
                 storage.addAttribute(.foregroundColor, value: CodeEditor.color(t.kind), range: t.range)
                 if t.kind == .comment { storage.addAttribute(.font, value: italic, range: t.range) }
@@ -701,7 +778,7 @@ final class LineNumberGutter: NSView {
         // their bounds by default – filling it hid the code and painted over the pane
         // header. Only ever paint our own bounds.
         let column = bounds
-        tv.backgroundColor.setFill()
+        (ThemeStore.palette?.gutter ?? tv.backgroundColor).setFill()
         column.fill()
         NSColor.separatorColor.setFill()
         NSRect(x: bounds.width - 1, y: 0, width: 1, height: bounds.height).fill()
@@ -711,7 +788,7 @@ final class LineNumberGutter: NSView {
         let scrollY = clip.bounds.minY
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: max(9, (tv.font?.pointSize ?? 12) - 2), weight: .regular),
-            .foregroundColor: NSColor.tertiaryLabelColor,
+            .foregroundColor: ThemeStore.palette?.gutterText ?? NSColor.tertiaryLabelColor,
         ]
         guard ns.length > 0 else {
             ("1" as NSString).draw(at: NSPoint(x: bounds.maxX - 14, y: origin.y - scrollY), withAttributes: attrs)

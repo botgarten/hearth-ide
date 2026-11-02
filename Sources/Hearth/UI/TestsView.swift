@@ -26,6 +26,22 @@ struct TestsView: View {
             }
         }
         .task(id: "\(root)#\(model.workspace.settledRevision)") { await reload() }
+        .onChange(of: model.workspace.testFocus) { _, focus in reveal(focus) }
+        .onAppear { reveal(model.workspace.testFocus) }
+    }
+
+    /// A test picked in Search Everywhere: filter to it and open its suite and details.
+    private func reveal(_ focus: WorkspaceState.TestFocus?) {
+        guard let focus else { return }
+        filter.wrappedValue = focus.name
+        onlyFailures.wrappedValue = false
+        if let suite = report.wrappedValue?.suites.first(where: { $0.cases.contains { $0.id == focus.id } }) {
+            // Expanded = "toggled" XOR "has failures" (failing suites start open).
+            if suite.failed > 0 { expandedSuites.wrappedValue.remove(suite.id) } else { expandedSuites.wrappedValue.insert(suite.id) }
+        }
+        expandedCases.wrappedValue.insert(focus.id)
+        // Keep the request until the report is there (the pane may have just been opened).
+        if report.wrappedValue != nil { model.workspace.testFocus = nil }
     }
 
     private var empty: some View {
@@ -214,6 +230,7 @@ struct TestsView: View {
         let found = await TestReports.load(root: root)
         guard !Task.isCancelled else { return }
         report.wrappedValue = found
+        reveal(model.workspace.testFocus)
     }
 
     private func toggle(_ set: State<Set<String>>, _ id: String) {

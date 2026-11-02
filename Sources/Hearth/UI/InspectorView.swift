@@ -83,7 +83,14 @@ private let paneDragPrefix = "hearth-pane:"
 struct PaneView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.themePalette) private var palette
     let pane: InspectorPane
+
+    /// Theme colour for pane headers, else the system's bar material.
+    @ViewBuilder
+    private var headerBackground: some View {
+        if let palette { Color(nsColor: palette.window) } else { Rectangle().fill(.bar) }
+    }
 
     private var zoomArea: TextArea { .pane(pane.id, pane.tab) }
 
@@ -157,7 +164,7 @@ struct PaneView: View {
         .buttonStyle(.borderless)
         .scaledFont(.caption)
         .padding(.horizontal, 8).padding(.vertical, 4)
-        .background(.bar)
+        .background { headerBackground }
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { model.layout.toggleMaximize(pane.id) }
         .onDrag {

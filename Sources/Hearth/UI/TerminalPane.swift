@@ -73,7 +73,7 @@ struct TerminalPaneView: View {
             Divider()
             ZStack(alignment: .bottom) {
                 EmbeddedTerminal(command: command, cwd: root ?? NSHomeDirectory(), dark: colorScheme == .dark,
-                                 scale: scale, onExit: { exited.wrappedValue = $0 })
+                                 scale: scale, theme: ThemeStore.shared.appearance, onExit: { exited.wrappedValue = $0 })
                     .id("\(generation.wrappedValue)#\(command.joined(separator: " "))#\(root ?? "")#\(colorScheme == .dark)")
                 if let code = exited.wrappedValue {
                     HStack {
@@ -110,6 +110,8 @@ struct EmbeddedTerminal: NSViewRepresentable {
     let cwd: String
     let dark: Bool
     let scale: Double
+    /// Current theme; a change re-colours the running terminal.
+    var theme: AppAppearance = .system
     let onExit: (Int32?) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(onExit: onExit) }
@@ -121,6 +123,7 @@ struct EmbeddedTerminal: NSViewRepresentable {
         view.terminalDelegate = security
         view.processDelegate = context.coordinator
         applyTheme(to: view)
+        context.coordinator.themed = theme
         var env = ProcessInfo.processInfo.environment
         env["TERM"] = "xterm-256color"
         env["COLORTERM"] = "truecolor"
@@ -137,6 +140,10 @@ struct EmbeddedTerminal: NSViewRepresentable {
     func updateNSView(_ view: LocalProcessTerminalView, context: Context) {
         let size = baseFontSize * scale
         if abs(view.font.pointSize - size) > 0.1 { view.font = font(size: size) }
+        if context.coordinator.themed != theme {
+            context.coordinator.themed = theme
+            applyTheme(to: view)
+        }
     }
 
     static func dismantleNSView(_ view: LocalProcessTerminalView, coordinator: Coordinator) {
@@ -153,6 +160,7 @@ struct EmbeddedTerminal: NSViewRepresentable {
 
     final class Coordinator: NSObject, LocalProcessTerminalViewDelegate {
         var security: TerminalSecurity?
+        var themed: AppAppearance?
         let onExit: (Int32?) -> Void
         init(onExit: @escaping (Int32?) -> Void) { self.onExit = onExit }
 
@@ -184,7 +192,18 @@ enum TerminalTheme {
     static func apply(to view: TerminalView, dark: Bool, scale: Double) {
         let p = profile(dark: dark)
         view.font = font(size: (p?.font.map { Double($0.pointSize) } ?? 12) * scale, dark: dark)
-        if let p {
+        if let palette = ThemeStore.palette {
+            // A Hearth theme wins over the iTerm2 colours (the iTerm2 font stays).
+            view.installColors(palette.ansi.map { c in
+                let s = c.usingColorSpace(.sRGB) ?? c
+                return SwiftTerm.Color(red: UInt16(s.redComponent * 65535), green: UInt16(s.greenComponent * 65535),
+                                       blue: UInt16(s.blueComponent * 65535))
+            })
+            view.nativeForegroundColor = palette.editorForeground
+            view.nativeBackgroundColor = palette.editorBackground
+            view.caretColor = palette.caret
+            view.selectedTextBackgroundColor = palette.selection
+        } else if let p {
             if p.ansi.count == 16 {
                 view.installColors(p.ansi.map { c in
                     let s = c.usingColorSpace(.sRGB) ?? c
