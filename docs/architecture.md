@@ -82,12 +82,103 @@ flowchart TB
 (Arbeitsordner prüfen, `AgentHome.prepare`, Profil aus `SandboxPolicy`, Hooks) → SwiftTerm startet
 `nono run --profile … -- <cli>`. Hooks schreiben in `events.jsonl`, `AgentHost` liest alle 0,5 s.
 
+```mermaid
+sequenceDiagram
+  participant U as Nutzer
+  participant M as AppModel
+  participant H as AgentHost
+  participant S as SandboxManager
+  participant Home as AgentHome
+  participant P as SandboxPolicy
+  participant T as SwiftTerm (LocalProcessTerminalView)
+  participant N as nono
+  participant E as events.jsonl
+
+  U->>M: startAgent(kind, directory)
+  M->>H: start(kind, directory)
+  H->>H: AgentRun anlegen, in runs einfügen
+  H->>S: prepare(.agent(kind), runID, directory, arguments)
+  S->>S: locateNono(), locate(kind)
+  S->>S: validateWorkdir(directory)
+  S->>Home: layout(for: kind) + prepare()
+  Home-->>S: eigener Ordner, Nur-Lese-Links, Umgebung
+  S->>P: make(.agent(kind), context)
+  P-->>S: SandboxPolicy (Rechte, Domains, Ports)
+  S->>S: Profil schreiben (nono-profile.json), Status-Hooks installieren
+  S-->>H: Launch(executable: nono, arguments, environment, directory)
+  H->>T: startProcess(nono run --profile … -- <cli>)
+  T->>N: Prozess startet in der Sandbox
+  loop alle 0,5 s
+    H->>E: pollEvents() liest neue Zeilen
+    E-->>H: Status-Ereignis (running/needsInput/done)
+    H->>M: onAttention / onFilesChanged
+  end
+```
+
 **Pull:** `AppModel.pull` → `SandboxGitRunner(.fetchUpstream)` in `.gitNetwork` → bei Erfolg
 `SandboxGitRunner(.fastForward)` in `.gitLocal`.
+
+```mermaid
+sequenceDiagram
+  participant U as Nutzer
+  participant M as AppModel
+  participant G as Git (Host, sandbox-exec)
+  participant R as SandboxGitRunner
+  participant NetSB as Sandbox .gitNetwork
+  participant LocSB as Sandbox .gitLocal
+
+  U->>M: pull(in: directory)
+  M->>G: networkSandboxOverrides(in: directory)
+  G-->>M: neutralisierte Repo-Config-Schlüssel
+  M->>R: run(.fetchUpstream) über Runner(.gitNetwork)
+  R->>NetSB: git fetch --prune (SSH-Schlüssel, Keychain, Port 22)
+  NetSB-->>R: Ergebnis
+  R-->>M: fetched (ok/Ausgabe)
+  alt fetch erfolgreich
+    M->>R: run(.fastForward) über Runner(.gitLocal)
+    R->>LocSB: git merge --ff-only @{u} (ohne Schlüssel, ohne Helfer)
+    LocSB-->>R: Ergebnis
+    R-->>M: merged (ok/Ausgabe)
+  else fetch fehlgeschlagen
+    M-->>U: Fehler aus fetch, kein Merge
+  end
+  M-->>U: Git.OpResult (ok, Ausgabe)
+```
 
 **Build-Aufgabe:** `BuildDeployStore.start` → `NonoCommandRunner(.build).start` → Ausgabe seitenweise,
 Health-Check vom Mac aus über `LocalPortProbe`. Maven/Gradle greifen über den nono-Proxy der Sandbox
 (`BuildCommand.proxySetup`) statt über `HTTP(S)_PROXY`, das Java ignoriert.
+
+```mermaid
+sequenceDiagram
+  participant U as Nutzer
+  participant V as BuildDeployView
+  participant D as BuildDeployStore
+  participant C as BuildCommand
+  participant Run as NonoCommandRunner (.build)
+  participant SB as Sandbox-Prozess
+  participant Probe as LocalPortProbe
+
+  U->>V: Aufgabe/Dienst starten
+  V->>D: start(task, root, serverID, client)
+  D->>D: unavailableReason() prüfen (Werkzeug im Sandbox-Probe vorhanden?)
+  D->>C: render(task, profile, port)
+  C-->>D: Befehlszeile (Prelude, ggf. Maven-/Gradle-Proxy, exec …)
+  D->>Run: start(SandboxCommandRequest(command, cwd, port))
+  Run->>SB: nono-Sandbox mit eigenem Profil startet Befehl
+  loop solange running
+    D->>Run: output(from:, limit:) / state(of:)
+    Run-->>D: neue Ausgabe-Seite / Zustand
+  end
+  opt Dienst mit Port
+    loop healthInterval
+      D->>Probe: status(port)
+      Probe->>SB: lokaler Health-Check vom Mac aus
+      Probe-->>D: erreichbar/nicht erreichbar
+    end
+  end
+  D-->>V: BuildRun-Zustand (running/failed/stopped), Log
+```
 
 **CI/CD laden:** `CIAccounts` löst aus dem Git-Remote Anbieter und Origin auf → passendes `CIClient`
 (`GitLabAPI` oder `GitHubAPI`) liest Pipelines/Workflows, Jobs und Logs über das gemeinsame Protokoll.
