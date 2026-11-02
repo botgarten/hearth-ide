@@ -28,8 +28,7 @@ struct LayoutDropTests {
         #expect(layout.dropHover != nil, "Cleared while the button is still down")
         // Mouse released, but no dropExited/performDrop arrived.
         down = false
-        let start = ContinuousClock.now
-        while layout.dropHover != nil, ContinuousClock.now - start < .seconds(5) {
+        for _ in 0..<250 where layout.dropHover != nil {
             try await Task.sleep(for: .milliseconds(20))
         }
         #expect(layout.dropHover == nil)

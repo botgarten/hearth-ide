@@ -102,18 +102,18 @@ struct LoadingTests {
         ws.revision += 1
         ws.revision += 1
         #expect(ws.settledRevision == 0, "Settled before changes paused")
-        let quiet = ContinuousClock.now
-        while ws.settledRevision != 2, ContinuousClock.now - quiet < .seconds(5) {
+        // Bounded by turns, not wall-clock time: other tests may hold the main actor for
+        // seconds on a slow CI runner, and every turn gives the settle task a chance to run.
+        for _ in 0..<250 where ws.settledRevision != 2 {
             try await Task.sleep(for: .milliseconds(20))
         }
         #expect(ws.settledRevision == 2)
 
         // An agent that keeps writing faster than the quiet period: only the upper bound can
-        // settle it. Without it the loop would run into its 5 s guard.
+        // settle it. Without it the loop would run out of turns.
         ws.settleDelay = .seconds(3)
         ws.maxSettleDelay = .milliseconds(200)
-        let start = ContinuousClock.now
-        while ws.settledRevision < 3, ContinuousClock.now - start < .seconds(5) {
+        for _ in 0..<250 where ws.settledRevision < 3 {
             ws.revision += 1
             try await Task.sleep(for: .milliseconds(20))
         }
