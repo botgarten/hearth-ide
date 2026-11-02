@@ -1,6 +1,6 @@
 # Hearth IDE – Änderungen
 
-## Unveröffentlicht
+## 0.5.1 · 2026-11-02
 
 - Verzeichnis: Das Suchfeld „Dateien suchen …“ ist weg. Dateien findest du mit „Überall suchen“ (doppeltes Shift); die Lupe oben im Verzeichnis öffnet die Suche direkt bei den Dateien.
 
