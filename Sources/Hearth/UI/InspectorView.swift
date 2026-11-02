@@ -340,9 +340,6 @@ struct DirectoryView: View {
     @Environment(\.textScale) private var scale
     let root: String
     let markers: [String: String]
-    private let query = State(initialValue: "")
-    private let results = State(initialValue: [FileSearch.Match]())
-    private let searching = State(initialValue: false)
 
     var body: some View {
         let _ = model.workspace.revision
@@ -350,6 +347,9 @@ struct DirectoryView: View {
             HStack {
                 Text(URL(fileURLWithPath: root).lastPathComponent).scaledFont(.caption, bold: true).lineLimit(1)
                 Spacer()
+                // File search lives in Search Everywhere (double Shift) now.
+                Button { model.search.open(.files) } label: { Image(systemName: "magnifyingglass") }
+                    .buttonStyle(.borderless).help("Search files (⇧⇧)")
                 Button { model.revealEditorFile(in: root) } label: { Image(systemName: "scope") }
                     .buttonStyle(.borderless).help("Reveal the active editor file in the directory")
                     .disabled(model.editor.file == nil)
@@ -363,30 +363,10 @@ struct DirectoryView: View {
             }
             .padding(.horizontal, 8).padding(.top, 6)
             .modifier(WorkspaceFileDrop(directory: URL(fileURLWithPath: root), root: root, model: model))
-            SearchField(text: query.projectedValue, prompt: String(localized: "Search files…"))
+            .padding(.bottom, 6)
             Divider()
-            if query.wrappedValue.count >= 2 {
-                tree(matches: results.wrappedValue)
-                .overlay(alignment: .topLeading) {
-                    if results.wrappedValue.isEmpty && !searching.wrappedValue {
-                        Text("No matches").foregroundStyle(.secondary).padding(8).allowsHitTesting(false)
-                    }
-                }
-                .busyOverlay(searching.wrappedValue && results.wrappedValue.isEmpty, label: String(localized: "Searching…"))
-                .task(id: "\(root)#\(query.wrappedValue)#\(model.workspace.settledRevision)") {
-                    try? await Task.sleep(for: .milliseconds(150))
-                    if Task.isCancelled { return }
-                    searching.wrappedValue = true
-                    let found = await FileSearch.find(query.wrappedValue, in: root)
-                    guard !Task.isCancelled else { return }
-                    results.wrappedValue = found
-                    searching.wrappedValue = false
-                }
-            } else {
-                tree()
-            }
+            tree()
         }
-        .onChange(of: model.workspace.revealID) { query.wrappedValue = "" }
     }
 
     private func tree(matches: [FileSearch.Match]? = nil) -> some View {
