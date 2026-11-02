@@ -1,6 +1,6 @@
 # Hearth IDE – Änderungen
 
-## Unveröffentlicht
+## 0.5.0 · 2026-11-02
 
 - Neue Themes: **Hearth Light**, **Darcula** und **Storm** (Einstellungen › Allgemein › Theme). Sie färben Bereiche, Editor, Syntax und die Terminals und lassen sich ohne Neustart wechseln, auch laufende Agent-Terminals.
 - **Überall suchen** mit doppeltem Shift, wie in IntelliJ IDEA: Dateien, Symbole (Klassen, Funktionen), Text in den Dateien, die Chats der Agenten, Sitzungen, Tests und Aktionen (z. B. Bereiche anzeigen, Theme wechseln, Git Pull). Treffer werden auch über Wortanfänge gefunden („mlv“ → MainLayoutView). ↑/↓ wählen, ↩ öffnet, ⇥ wechselt die Kategorie. Dazu im Menü „Navigieren“: Gehe zu Datei (⇧⌘O), In Dateien suchen (⇧⌘F), Aktion suchen (⇧⌘A).
