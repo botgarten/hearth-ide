@@ -1,6 +1,6 @@
 # Hearth IDE – Änderungen
 
-## Unveröffentlicht
+## 0.4.6 · 2026-11-02
 
 - Bereiche verschieben: Die blaue Vorschau, wo ein Bereich landet, bleibt nach dem Loslassen nicht mehr stehen. Es gibt nur noch eine Vorschau zur Zeit, und sie verschwindet, sobald die Maustaste losgelassen ist, auch wenn macOS das Ende des Ziehens nicht meldet.
 
