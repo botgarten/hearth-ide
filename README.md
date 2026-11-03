@@ -55,6 +55,20 @@ symbols, text, the agents' chats, sessions, tests and actions; Tab switches the
 category. ⇧⌘O goes to a file, ⇧⌘F searches text, ⇧⌘A finds an action. Text hits
 open the file with the term marked.
 
+**Editor:** [Monaco](https://github.com/microsoft/monaco-editor), the editor of VS Code,
+in the Preview pane – offline, from the app bundle. Syntax colouring, folding, multiple
+cursors, find/replace, JavaScript and TypeScript also get completion and hover
+(single file). Go, Java, Python, Rust, Kotlin, Swift, C#, C/C++, Ruby, PHP, shell, SQL, YAML, XML,
+HTML/CSS, Markdown and more are tokenized (no language servers). ⌘-click or F12 jumps to a
+definition, ⌘[ / ⌘] go back and forward, ⌘S saves. Unstaged Git changes show as bars and tinted lines.
+
+**Find Usages:** right-click a name in the editor (or ⌥F7), or a file or folder in the directory,
+▸ *Find Usages*. The list below the editor shows where it is used (file and line) and who uses it
+(the class and function around it), grouped by file, with definitions, code, imports and comments
+filterable. It searches the workspace – including unsaved edits – in the same language by default
+(switchable to all files). There is no compiler behind it: hits are whole-word matches, so a
+different class with the same name also shows up.
+
 > **Status:** next up is a native chat over ACP (Agent Client Protocol).
 > Details: [PLAN.md](PLAN.md), structure: [architecture](docs/architecture.md).
 

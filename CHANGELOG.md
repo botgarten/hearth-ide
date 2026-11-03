@@ -1,5 +1,11 @@
 # Hearth IDE – Änderungen
 
+## Unveröffentlicht
+
+- **Neuer Editor:** Der Editor im Vorschau-Fenster ist jetzt [Monaco](https://github.com/microsoft/monaco-editor), der Editor von VS Code (offline, im App-Bundle). Syntaxfarben für JavaScript, TypeScript, Java, Go, Rust, Python und weitere Sprachen, Mehrfach-Cursor, Suchen/Ersetzen, Code-Faltung, Klammerpaare. JavaScript und TypeScript bieten zusätzlich Vervollständigung und Hover (nur innerhalb einer Datei). Alle Themes färben ihn mit. Pro Datei merkt er sich Rückgängig-Verlauf, Cursor und Scroll-Position. Ohne `scripts/fetch-monaco.sh` (Entwicklungs-Build) bleibt der bisherige native Editor aktiv.
+- **Verwendungen suchen** (IntelliJ: „Find Usages“): Rechtsklick auf einen Namen im Editor (oder ⌥F7) sowie auf eine Datei oder einen Ordner im Verzeichnis ▸ „Verwendungen suchen“. Die Liste unter dem Editor zeigt, **wo** etwas benutzt wird (Datei, Zeile) und **wer** es benutzt (die umgebende Klasse und Funktion), gruppiert nach Datei. Definitionen, Code, Imports und Kommentare lassen sich ausblenden. Ungespeicherte Änderungen werden mitgesucht. Standardmäßig nur Dateien derselben Sprache, umschaltbar auf alle Dateien. Es gibt keinen Compiler dahinter: Treffer sind Wort-Treffer, eine gleichnamige andere Klasse erscheint also auch.
+- ⌘-Klick und F12 springen zur Definition, ⌘[ und ⌘] gehen zurück und vor, ⌥⌘↑/↓ springen zwischen Git-Änderungen, ⌘L springt zu einer Zeile, ⌘S speichert. Die Tastenkürzel der App (⇧⌘O, ⇧⌘F, ⇧⌘A, ⌘W, ⌘+/−) bleiben im Editor erhalten.
+
 ## 0.5.1 · 2026-11-02
 
 - Verzeichnis: Das Suchfeld „Dateien suchen …“ ist weg. Dateien findest du mit „Überall suchen“ (doppeltes Shift); die Lupe oben im Verzeichnis öffnet die Suche direkt bei den Dateien.

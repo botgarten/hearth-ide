@@ -103,6 +103,8 @@ private struct EditorDocumentView: View {
     private let goToLineShown = State(initialValue: false)
     private let goToLineInput = State(initialValue: "")
     private let showRendered = State(initialValue: true)
+    /// The last text document shown: Monaco stays alive (hidden) while an image or rendered Markdown is shown.
+    private let lastEditable = State(initialValue: URL?.none)
     private let diffText = State(initialValue: String?.none)
     private let confirmOverwrite = State(initialValue: false)
     private let confirmDiscard = State(initialValue: URL?.none)
@@ -129,6 +131,18 @@ private struct EditorDocumentView: View {
     private var document: PreviewDocument? { group.file.map(model.editor.document(for:)) }
 
     var body: some View {
+        editorBody
+            // "Find Usages" results sit below the editor that started the search.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if let search = model.editor.usages, search.pane == paneID { UsagesPanel(search: search, root: root) }
+            }
+            .onChange(of: group.file, initial: true) { _, new in
+                if let new, model.editor.document(for: new).isEditableKind { lastEditable.wrappedValue = new }
+            }
+    }
+
+    @ViewBuilder
+    private var editorBody: some View {
         if let url = group.file {
             VStack(spacing: 0) {
                 tabBar
@@ -378,42 +392,114 @@ private struct EditorDocumentView: View {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         } else if let doc = document {
-            switch doc.kind {
-            case .missing: ContentUnavailableView("File deleted", systemImage: "doc")
-            case .binary: ContentUnavailableView("Binary file", systemImage: "doc")
-            case .tooLarge: ContentUnavailableView("File too large to show", systemImage: "doc")
-            case .image:
-                ScrollView([.horizontal, .vertical]) { if let img = doc.image { Image(nsImage: img) } }
-            case .markdown where showRendered.wrappedValue && group.highlight == nil:
-                ScrollView {
-                    MarkdownBlocks(text: doc.text)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
+            if MonacoAsset.isAvailable {
+                monacoContent(doc)
+            } else {
+                switch doc.kind {
+                case .text, .markdown where !(doc.kind == .markdown && showRendered.wrappedValue && group.highlight == nil):
+                    nativeEditor(doc)
+                default:
+                    viewerContent(doc)
                 }
-            case .text, .markdown:
-                CodeEditor(text: Binding(get: { doc.text }, set: { doc.text = $0 }),
-                           language: doc.language,
-                           editable: true,
-                           highlightLine: group.line,
-                           searchTerm: group.highlight,
-                           fontSize: 12 * scale,
-                            onCommandClick: { symbol, qualifier in
-                                activate()
-                                Task { await model.editor.goToDefinition(symbol: symbol, qualifier: qualifier) }
-                           },
-                           hunks: doc.isDirty ? [] : currentDiff.hunks,
-                           selectedHunk: currentSelectedHunk,
-                           onHunkClick: { h in select(h) },
-                            onGoToLine: { goToLineShown.wrappedValue = true },
-                            onFocus: { activate() },
-                            stateKey: doc.url.path,
-                            takesFocusFromPreviousEditor: isActive)
-                .help("⌘-click a name to jump to its definition · ⌘[ to go back")
-                .id(doc.url)
             }
         } else {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    /// Everything but the code editor: placeholders, images, rendered Markdown.
+    @ViewBuilder
+    private func viewerContent(_ doc: PreviewDocument) -> some View {
+        switch doc.kind {
+        case .missing: ContentUnavailableView("File deleted", systemImage: "doc")
+        case .binary: ContentUnavailableView("Binary file", systemImage: "doc")
+        case .tooLarge: ContentUnavailableView("File too large to show", systemImage: "doc")
+        case .image:
+            ScrollView([.horizontal, .vertical]) { if let img = doc.image { Image(nsImage: img) } }
+        case .markdown:
+            ScrollView {
+                MarkdownBlocks(text: doc.text)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+            }
+        case .text:
+            EmptyView()
+        }
+    }
+
+    private func isEditing(_ doc: PreviewDocument) -> Bool {
+        doc.kind == .text || (doc.kind == .markdown && (!showRendered.wrappedValue || group.highlight != nil))
+    }
+
+    /// Monaco is created once per pane and kept while a viewer is shown, so switching from an image or
+    /// a rendered Markdown file back to code doesn't boot the editor again.
+    @ViewBuilder
+    private func monacoContent(_ doc: PreviewDocument) -> some View {
+        let editing = isEditing(doc)
+        let hosted = editing ? doc : lastEditable.wrappedValue.flatMap { model.editor.documents[$0] }
+        ZStack {
+            if let hosted { monaco(hosted, visible: editing) }
+            if !editing { viewerContent(doc) }
+        }
+    }
+
+    private func document(atPath path: String) -> PreviewDocument? {
+        model.editor.documents.values.first { $0.url.path == path }
+    }
+
+    private func monaco(_ doc: PreviewDocument, visible: Bool) -> some View {
+        MonacoEditor(text: doc.text,
+                     stateKey: doc.url.path,
+                     languageID: MonacoLanguage.id(for: doc.url, syntax: doc.language),
+                     fontSize: 12 * scale,
+                     highlightLine: visible ? group.line : nil,
+                     searchTerm: visible ? group.highlight : nil,
+                     hunks: doc.isDirty ? [] : (visible ? currentDiff.hunks : []),
+                     selectedHunk: currentSelectedHunk,
+                     openKeys: group.tabs.map(\.path),
+                     takesFocusFromPreviousEditor: isActive,
+                     isVisible: visible,
+                     onTextChange: { key, text in document(atPath: key)?.text = text },
+                     onSave: { _ in if document?.isDirty == true { save(force: false) } },
+                     onCommandClick: { symbol, qualifier in
+                         activate()
+                         Task { await model.editor.goToDefinition(symbol: symbol, qualifier: qualifier) }
+                     },
+                     onFindUsages: { symbol, _ in
+                         activate()
+                         model.editor.findUsages(symbol: symbol, pane: paneID)
+                     },
+                     onHunkClick: { id in if let h = currentDiff.hunks.first(where: { $0.id == id }) { select(h) } },
+                     onHunkStep: { dir in step(dir) },
+                     onNavigate: { dir in
+                         activate()
+                         if dir < 0 { model.editor.navigateBack() } else { model.editor.navigateForward() }
+                     },
+                     onFocus: { activate() })
+            .help("⌘-click a name to jump to its definition · ⌥F7 finds its usages · ⌘[ to go back")
+    }
+
+    /// The AppKit editor, used when Monaco isn't bundled (e.g. a dev build without scripts/fetch-monaco.sh).
+    private func nativeEditor(_ doc: PreviewDocument) -> some View {
+        CodeEditor(text: Binding(get: { doc.text }, set: { doc.text = $0 }),
+                   language: doc.language,
+                   editable: true,
+                   highlightLine: group.line,
+                   searchTerm: group.highlight,
+                   fontSize: 12 * scale,
+                   onCommandClick: { symbol, qualifier in
+                       activate()
+                       Task { await model.editor.goToDefinition(symbol: symbol, qualifier: qualifier) }
+                   },
+                   hunks: doc.isDirty ? [] : currentDiff.hunks,
+                   selectedHunk: currentSelectedHunk,
+                   onHunkClick: { h in select(h) },
+                   onGoToLine: { goToLineShown.wrappedValue = true },
+                   onFocus: { activate() },
+                   stateKey: doc.url.path,
+                   takesFocusFromPreviousEditor: isActive)
+            .help("⌘-click a name to jump to its definition · ⌘[ to go back")
+            .id(doc.url)
     }
 
     // MARK: Actions

@@ -90,3 +90,32 @@ final class FakeCommandRunner: SandboxCommandRunner, @unchecked Sendable {
 
     func running() async -> [SandboxCommandInfo] { list }
 }
+
+/// Tests that host real AppKit/WebKit views wait for them with fixed delays. Run in parallel, a booting
+/// web view starves those delays, so such tests take turns.
+actor ViewTestGate {
+    static let shared = ViewTestGate()
+    private var busy = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func enter() async {
+        if busy { await withCheckedContinuation { waiters.append($0) } } else { busy = true }
+    }
+
+    func leave() {
+        if waiters.isEmpty { busy = false } else { waiters.removeFirst().resume() }
+    }
+}
+
+/// `await ViewTestGate.turn()` at the top of a view-hosting test; the returned token ends the turn when released.
+struct ViewTurn: Sendable {
+    fileprivate init() {}
+    func end() { Task { await ViewTestGate.shared.leave() } }
+}
+
+extension ViewTestGate {
+    static func turn() async -> ViewTurn {
+        await shared.enter()
+        return ViewTurn()
+    }
+}

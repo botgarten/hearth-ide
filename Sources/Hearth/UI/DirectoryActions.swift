@@ -69,6 +69,8 @@ struct DirectoryItemMenu: View {
             DirectoryCreateMenu(directory: url, root: root)
             Divider()
         }
+        Button("Find Usages") { model.editor.findUsages(of: url) }
+        Divider()
         Button("Rename…") { model.changeWorkspaceItem(url, root: root, rename: true) }
         Button("Move…") { model.changeWorkspaceItem(url, root: root, rename: false) }
         Button("Move to Trash…", role: .destructive) { model.trashWorkspaceItem(url, root: root) }
@@ -341,6 +343,8 @@ extension AppModel {
             let relative = String(url.path.dropFirst(root.count)).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             if markers[relative] != nil { add(String(localized: "Show diff")) { self.editor.open(url, mode: .diff) } }
         }
+        add(String(localized: "Find Usages")) { self.editor.findUsages(of: url) }
+        menu.addItem(.separator())
         add(String(localized: "Rename…")) { self.changeWorkspaceItem(url, root: root, rename: true) }
         add(String(localized: "Move…")) { self.changeWorkspaceItem(url, root: root, rename: false) }
         add(String(localized: "Move to Trash…")) { self.trashWorkspaceItem(url, root: root) }

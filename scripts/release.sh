@@ -33,6 +33,7 @@ git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null && fail "Tag $VERSION 
 
 step "Tests"
 scripts/fetch-nono.sh >/dev/null
+scripts/fetch-monaco.sh >/dev/null
 scripts/test.sh
 
 step "Changelog"

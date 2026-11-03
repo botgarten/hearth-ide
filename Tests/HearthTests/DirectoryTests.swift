@@ -11,6 +11,8 @@ struct DirectoryTests {
     }
 
     @Test func nativeDragDropAndReveal() async throws {
+        let turn = await ViewTestGate.turn()
+        defer { turn.end() }
         _ = NSApplication.shared
         let fm = FileManager.default
         let base = { () -> URL in

@@ -34,9 +34,12 @@ jobs:
           path: |
             .build
             Vendor/nono
-          key: spm-${{ runner.os }}-${{ hashFiles('Package.resolved', 'scripts/fetch-nono.sh') }}
+            Vendor/monaco
+          key: spm-${{ runner.os }}-${{ hashFiles('Package.resolved', 'scripts/fetch-nono.sh', 'scripts/fetch-monaco.sh') }}
       - name: Fetch nono (pinned, checksum-verified)
         run: scripts/fetch-nono.sh
+      - name: Fetch Monaco (pinned, integrity-checked)
+        run: scripts/fetch-monaco.sh
       - name: Build
         run: swift build
       - name: Tests

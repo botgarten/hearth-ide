@@ -12,6 +12,11 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Hearth"
 cp Resources/mermaid.min.js Resources/AppIcon.icns "$APP/Contents/Resources/"
+# Monaco, the editor of VS Code (pinned, integrity-checked; see scripts/fetch-monaco.sh), and its host page script.
+MONACO="$(scripts/fetch-monaco.sh | tail -n1)"
+mkdir -p "$APP/Contents/Resources/monaco"
+cp -R "$MONACO/." "$APP/Contents/Resources/monaco/"
+cp Resources/monaco-host.js "$APP/Contents/Resources/"
 # Translations: English is the development language, German in de.lproj.
 cp -R Resources/en.lproj Resources/de.lproj "$APP/Contents/Resources/"
 # The sandbox runtime: pinned, checksum-verified nono release (see scripts/fetch-nono.sh).

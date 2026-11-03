@@ -679,3 +679,30 @@
 "macOS Light" = "macOS Hell";
 "⇥ next category" = "⇥ nächste Kategorie";
 "Search files (⇧⇧)" = "Dateien suchen (⇧⇧)";
+
+/* Find Usages, Monaco editor */
+"%lld usages in %lld files" = "%1$lld Verwendungen in %2$lld Dateien";
+"%lld usages in 1 file" = "%lld Verwendungen in 1 Datei";
+"1 usage in 1 file" = "1 Verwendung in 1 Datei";
+"All files" = "Alle Dateien";
+"Code" = "Code";
+"Comments" = "Kommentare";
+"Copy path and line" = "Pfad und Zeile kopieren";
+"Definition" = "Definition";
+"Everything is filtered out" = "Alles ist ausgefiltert";
+"Find Usages" = "Verwendungen suchen";
+"Go to Definition" = "Gehe zu Definition";
+"Imports" = "Imports";
+"No usages" = "Keine Verwendungen";
+"No usages found" = "Keine Verwendungen gefunden";
+"Nothing to look for here" = "Hier gibt es nichts zu suchen";
+"Only files of the same language were searched. Choose “All files” to include the rest." = "Es wurden nur Dateien derselben Sprache durchsucht. Mit „Alle Dateien“ wird der Rest einbezogen.";
+"Same language" = "Gleiche Sprache";
+"Search again" = "Erneut suchen";
+"Search in" = "Suchen in";
+"Show or hide kinds of usages" = "Arten von Verwendungen ein- oder ausblenden";
+"Usages of “%@”" = "Verwendungen von „%@“";
+"Used in %@" = "Verwendet in %@";
+"Which files are searched" = "Welche Dateien durchsucht werden";
+"list is limited" = "Liste ist begrenzt";
+"⌘-click a name to jump to its definition · ⌥F7 finds its usages · ⌘[ to go back" = "⌘-Klick auf einen Namen springt zur Definition · ⌥F7 sucht seine Verwendungen · ⌘[ zurück";

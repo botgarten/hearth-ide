@@ -285,6 +285,90 @@ final class EditorStore {
         }
     }
 
+    // MARK: Find usages
+
+    /// The last "Find Usages" and where it is shown (the list sits below that editor).
+    struct UsageSearch: Equatable {
+        var query: UsageQuery
+        var pane: UUID
+        var result: UsageResult?
+        var searching = true
+        /// The kinds listed (the search itself is complete; this only filters the list).
+        var shownKinds: Set<Usage.Kind> = Set(Usage.Kind.allCases)
+
+        static func == (a: UsageSearch, b: UsageSearch) -> Bool {
+            a.query == b.query && a.pane == b.pane && a.searching == b.searching && a.shownKinds == b.shownKinds
+                && a.result?.usages.count == b.result?.usages.count
+        }
+    }
+
+    var usages: UsageSearch?
+    private var usageGeneration = UUID()
+
+    /// The editor pane that shows the usages; creates one when only other panes exist.
+    private func usagesPane() -> UUID? {
+        if layout.editorPaneIDs.isEmpty, let last = layout.paneTree.panes.last {
+            layout.split(last.id, axis: .vertical, tab: .preview)
+        }
+        if let id = activeEditorID, layout.editorPaneIDs.contains(id) { return id }
+        return layout.editorPaneIDs.first
+    }
+
+    /// ⌥F7 / right-click ▸ Find Usages in the editor: the name under the cursor.
+    func findUsages(symbol: String, pane: UUID? = nil) {
+        guard let root = workspaceRoot(), SymbolFinder.isIdentifier(symbol) else { return }
+        let group = pane.map(self.group) ?? active
+        let source = group.file.flatMap { EditorPresentation.relativePath($0, root: root) }
+        let restrict = source.map { SymbolFinder.sourceExtensions.contains(($0 as NSString).pathExtension.lowercased()) } ?? false
+        runUsages(UsageQuery(text: symbol, scope: restrict ? .sameLanguage : .allFiles, sourcePath: source), root: root, pane: pane)
+    }
+
+    /// Right-click ▸ Find Usages on a file or folder in the directory: who uses this class/module/folder.
+    func findUsages(of url: URL) {
+        guard let root = workspaceRoot(), let query = UsageQuery.forFile(url, root: root) else {
+            notify(String(localized: "Nothing to look for here"))
+            return
+        }
+        runUsages(query, root: root, pane: nil)
+    }
+
+    func runUsages(_ query: UsageQuery, root: String, pane: UUID?) {
+        guard let paneID = pane.flatMap({ layout.editorPaneIDs.contains($0) ? $0 : nil }) ?? usagesPane() else { return }
+        let generation = UUID()
+        usageGeneration = generation
+        usages = UsageSearch(query: query, pane: paneID, result: nil, searching: true, shownKinds: usages?.shownKinds ?? Set(Usage.Kind.allCases))
+        // Unsaved edits count: search what the editor shows, not only the disk.
+        var unsaved: [String: String] = [:]
+        for doc in unsavedDocuments {
+            if let relative = EditorPresentation.relativePath(doc.url, root: root) { unsaved[relative] = doc.text }
+        }
+        Task {
+            let result = await UsageFinder.find(query, root: root, overrides: unsaved)
+            guard usageGeneration == generation, workspaceRoot() == root else { return }
+            usages?.result = result
+            usages?.searching = false
+        }
+    }
+
+    func changeUsageScope(_ scope: UsageQuery.Scope) {
+        guard var current = usages, let root = workspaceRoot() else { return }
+        current.query.scope = scope
+        runUsages(current.query, root: root, pane: current.pane)
+    }
+
+    func closeUsages() {
+        usageGeneration = UUID()
+        usages = nil
+    }
+
+    /// Opens a usage in the editor that shows the list.
+    func open(_ usage: Usage, in pane: UUID, root: String) {
+        activeEditorID = pane
+        let term = usages?.query.text
+        open(URL(fileURLWithPath: root).appendingPathComponent(usage.path), mode: .file, line: usage.line,
+             highlight: term.flatMap { SymbolFinder.isIdentifier($0) ? $0 : nil })
+    }
+
     func open(_ location: SymbolLocation, root: String) {
         definitionChoices = nil
         open(URL(fileURLWithPath: root).appendingPathComponent(location.path), mode: .file, line: location.line)
@@ -337,6 +421,7 @@ final class EditorStore {
         }
         selectedFile = target.selectedFile
         invalidateDefinition()
+        closeUsages()
         shownWorkspace = key
         workspaces = stash.filter { keep($0.key) }
     }

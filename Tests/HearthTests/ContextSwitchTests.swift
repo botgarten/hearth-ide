@@ -38,6 +38,8 @@ struct ContextSwitchTests {
     }
 
     @Test func nativeEditorSwitchResetsViewNotBuffers() async throws {
+        let turn = await ViewTestGate.turn()
+        defer { turn.end() }
         _ = NSApplication.shared
         final class Buffer { var text: String; init(_ text: String) { self.text = text } }
         let a = Buffer(String(repeating: "let number = 42\n", count: 100))
@@ -81,6 +83,8 @@ struct ContextSwitchTests {
     }
 
     @Test func nativeMarkdownRemeasuresOnTextAndWidthChanges() async throws {
+        let turn = await ViewTestGate.turn()
+        defer { turn.end() }
         _ = NSApplication.shared
         func content(_ text: String) -> AnyView {
             AnyView(VStack(alignment: .leading) {
