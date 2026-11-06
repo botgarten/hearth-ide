@@ -1,5 +1,9 @@
 # Hearth IDE – Änderungen
 
+## Unveröffentlicht
+
+- Überblick: In schmalen Bereichen läuft die Ansicht nicht mehr über den Rand. Der Filter wird dort zum Menü, lange Titel brechen um.
+
 ## 0.8.0 · 2026-11-06
 
 - **Git-Aktionen im Git-Bereich:** Änderungen **vormerken** (Stage) und wieder aufheben, einzeln oder alle; **Commit** mit Nachricht; **Push** (veröffentlicht einen neuen Branch mit Upstream, nie erzwungen); **Merge** eines Branches in den aktuellen (Kontextmenü) samt „Merge abbrechen“; **Stash** (Änderungen beiseitelegen, anwenden, Pop, verwerfen); **MR/PR** erstellt einen Merge Request (GitLab) oder Pull Request (GitHub) über die API und öffnet ihn im Browser, mit dem separat freigegebenen Schreib-Token des CI/CD-Bereichs. Commit, Merge und Stash laufen in der Git-Sandbox ohne Netz, Push in der Netzwerk-Sandbox; Git-Hooks laufen dabei bewusst nicht, Commits werden nicht signiert. Autor kommt aus `~/.gitconfig`.

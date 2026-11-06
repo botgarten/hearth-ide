@@ -32,6 +32,8 @@ struct JournalView: View {
         VStack(spacing: 0) {
             if !enabled { disabled } else if journal.isEmpty { empty } else { content }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
     }
 
     private var disabled: some View {
@@ -59,13 +61,23 @@ struct JournalView: View {
 
     private var content: some View {
         VStack(spacing: 0) {
-            HStack {
-                Picker("", selection: $filter) {
-                    ForEach(Filter.allCases) { Text($0.title).tag($0) }
+            HStack(spacing: 8) {
+                // Segmented control when there is room, a compact menu in narrow panes.
+                ViewThatFits(in: .horizontal) {
+                    Picker("", selection: $filter) {
+                        ForEach(Filter.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    Picker("", selection: $filter) {
+                        ForEach(Filter.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .fixedSize()
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                Spacer(minLength: 8)
+                Spacer(minLength: 0)
                 Button { collapsed = collapsed.isEmpty ? Set(journal.nodeIDs) : [] } label: {
                     Image(systemName: collapsed.isEmpty ? "chevron.up.chevron.down" : "chevron.down.chevron.up")
                 }
@@ -74,7 +86,7 @@ struct JournalView: View {
             }
             .padding(8)
             Divider()
-            ScrollView {
+            ScrollView(.vertical) {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(rows(), id: \.node.id) { row in
                         nodeRow(row)
@@ -133,13 +145,15 @@ struct JournalView: View {
                 .fontWeight(node.kind == .step && node.status == .running ? .semibold : .regular)
                 .strikethrough(node.revoked != nil)
                 .foregroundStyle(node.revoked != nil ? .secondary : .primary)
-                .lineLimit(2)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(1)
             if let label = statusLabel(node) {
-                Text(label).font(.caption).foregroundStyle(statusColor(node))
+                Text(label).font(.caption).foregroundStyle(statusColor(node)).lineLimit(1)
             }
             if isCurrent {
                 Label("current", systemImage: "location.fill")
-                    .font(.caption).foregroundStyle(.tint)
+                    .font(.caption).foregroundStyle(.tint).lineLimit(1).fixedSize()
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(.tint.opacity(0.12), in: Capsule())
             }
@@ -158,6 +172,7 @@ struct JournalView: View {
         .padding(.leading, 10 + CGFloat(row.depth) * 18)
         .padding(.trailing, 10)
         .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
     }
 
