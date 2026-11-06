@@ -64,4 +64,34 @@ struct LiveSandboxTests {
             try require(!output.contains("read-keychain"), "\(name): keychain readable")
         }
     }
+
+    /// The agent calls `hearth-journal` from inside its sandbox; the line must land in the run folder.
+    @Test func agentCanWriteTheJournalFromInsideTheSandbox() async throws {
+        let (dir, support) = try project()
+        defer { try? FileManager.default.removeItem(at: dir); try? FileManager.default.removeItem(at: support) }
+        let runDir = support.appendingPathComponent("runs/journal-live")
+        try FileManager.default.createDirectory(at: runDir, withIntermediateDirectories: true)
+        let bin = try JournalSupport.install(runDirectory: runDir)
+        let policy = SandboxPolicy.make(.agent(.claude), SandboxManager.context(runDirectory: runDir, directory: dir.path, settings: .load()))
+        let profile = runDir.appendingPathComponent("nono-profile.json")
+        try policy.profileData.write(to: profile)
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: VendoredNono.path ?? "")
+        p.arguments = ["run", "--silent", "--profile", profile.path, "--allow-cwd", "--no-diagnostics", "--",
+                       "/bin/sh", "-c", "hearth-journal step s1 --title 'from sandbox' --status running"]
+        p.currentDirectoryURL = dir
+        var env = ProcessInfo.processInfo.environment
+        env["PATH"] = bin.path + ":/usr/bin:/bin"
+        env["HEARTH_JOURNAL"] = JournalSupport.url(runDirectory: runDir).path
+        p.environment = env
+        let out = Pipe()
+        p.standardOutput = out
+        p.standardError = out
+        try p.run()
+        p.waitUntilExit()
+        var reader = JournalReader()
+        let changed = reader.poll(url: JournalSupport.url(runDirectory: runDir))
+        let output = String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        try require(changed && reader.journal.node("s1")?.title == "from sandbox", "journal not written: \(output)")
+    }
 }

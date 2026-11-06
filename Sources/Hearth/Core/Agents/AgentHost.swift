@@ -27,6 +27,9 @@ final class AgentRun: Identifiable {
     /// Bumped on every (re)start so views pick up the terminal view.
     var launchCount = 0
 
+    /// Steps and decisions the agent recorded with `hearth-journal`, plus the user's revocations.
+    var journal = Journal()
+    @ObservationIgnored var journalReader = JournalReader()
     @ObservationIgnored var terminal: LocalProcessTerminalView?
     @ObservationIgnored var themedScale: Double?
     @ObservationIgnored var restartAfterExit = false
@@ -265,7 +268,36 @@ final class AgentHost {
 
     static let maxEventChunk = 1 << 20
 
+    private func pollJournal(_ run: AgentRun) {
+        let url = JournalSupport.url(runDirectory: SandboxManager.runDirectory(run.id))
+        if run.journalReader.poll(url: url) { run.journal = run.journalReader.journal }
+    }
+
+    /// Marks an entry as revoked (the journal keeps it, struck through) and tells the agent.
+    func revoke(_ run: AgentRun, id: String, reason: String) {
+        guard run.journal.node(id) != nil else { return }
+        let prompt = run.journal.revokePrompt(for: id, reason: reason)
+        var line: [String: Any] = ["t": "revoke", "target": id, "by": "user"]
+        if let reason = Journal.clean(reason) { line["reason"] = reason }
+        guard var data = try? JSONSerialization.data(withJSONObject: line) else { return }
+        data.append(10)
+        let url = JournalSupport.url(runDirectory: SandboxManager.runDirectory(run.id))
+        if let handle = try? FileHandle(forWritingTo: url) {
+            defer { try? handle.close() }
+            _ = try? handle.seekToEnd()
+            try? handle.write(contentsOf: data)
+        }
+        pollJournal(run)
+        guard run.isRunning, let terminal = run.terminal else { return }
+        terminal.send(txt: prompt)
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(150))
+            terminal.send(txt: "\r")
+        }
+    }
+
     private func pollEvents(_ run: AgentRun) {
+        pollJournal(run)
         let url = SandboxManager.runDirectory(run.id).appendingPathComponent("events.jsonl")
         guard let handle = try? FileHandle(forReadingFrom: url) else { return }
         defer { try? handle.close() }
@@ -363,6 +395,8 @@ final class AgentHost {
             AgentRun(id: $0.id, kind: $0.kind, directory: $0.directory, title: $0.title,
                      sessionID: $0.sessionID, created: $0.created, updated: $0.updated)
         }
+        // Show the recorded history of finished sessions too.
+        runs.forEach(pollJournal)
     }
 
     func save() {

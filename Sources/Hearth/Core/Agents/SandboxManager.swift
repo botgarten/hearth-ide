@@ -219,7 +219,14 @@ enum SandboxManager {
         let runDir = runDirectory(runID)
         try FileManager.default.createDirectory(at: runDir, withIntermediateDirectories: true)
         var args = agentArguments
-        if statusHooks { args = try AgentStatusHooks.install(kind: kind, runDirectory: runDir) + args }
+        var journalBin: URL?
+        if statusHooks {
+            args = try AgentStatusHooks.install(kind: kind, runDirectory: runDir) + args
+            if kind != .shell, JournalSupport.enabled {
+                journalBin = try JournalSupport.install(runDirectory: runDir)
+                args = JournalSupport.arguments(kind: kind) + args
+            }
+        }
         var program = agent.path
         var openPorts: [Int] = extraPorts
         var extraEnv: [String: String] = [:]
@@ -251,7 +258,8 @@ enum SandboxManager {
             || key == "CODEX_SANDBOX" || key.hasPrefix("OPENCODE_") || key.hasPrefix("NONO_") {
             env[key] = nil
         }
-        env["PATH"] = searchPath.joined(separator: ":")
+        env["PATH"] = ((journalBin.map { [$0.path] } ?? []) + searchPath).joined(separator: ":")
+        if journalBin != nil { env["HEARTH_JOURNAL"] = JournalSupport.url(runDirectory: runDir).path }
         env["TERM"] = "xterm-256color"
         env["COLORTERM"] = "truecolor"
         env["TERM_PROGRAM"] = "hearth"

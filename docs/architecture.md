@@ -64,6 +64,7 @@ flowchart TB
 | | `SandboxGitOperation`, `SandboxGitRunner` | Fetch/Clone in `.gitNetwork`, Fast-forward in `.gitLocal`; Repo-Helfer neutralisiert. |
 | Build | `BuildDetector`, `BuildTask`, `BuildCommand`, `BuildDeployStore` | Aufgaben aus Projektdateien (Maven, Gradle, npm, Go, Make, eigene) erkennen, sicher gequotete Befehle bauen, ausführen, Health-Checks über `SandboxCommandRunner`. Maven/Gradle/npm bekommen einen eigenen Cache unter `~/Library/Caches/Hearth/`; Java-Programme (auch Spring Boot mit Vaadin) ein eigenes Home dort, Dev-Server dürfen lokale Hilfsprozesse (z. B. Vite) erreichen. |
 | CI/CD | `CIClient` (`GitLabAPI`, `GitHubAPI`), `CIAccounts` | GitLab-Pipelines und GitHub Actions (github.com und Enterprise) über ein gemeinsames Protokoll: Läufe, Jobs als Diagramm oder Liste, Logs, Retry/Cancel, `workflow_dispatch`. Tokens pro bestätigtem Origin. |
+| Überblick | `Journal`, `JournalReader`, `JournalSupport`, `JournalView` | Baum aus Schritten, Entscheidungen und Fragen je Sitzung. Der Agent schreibt per `hearth-journal` (Skript im Sitzungsordner, auf dem PATH) Zeilen nach `journal.jsonl`; `AgentHost` liest sie wie `events.jsonl` (begrenzt, bereinigt), Revidieren hängt eine `revoke`-Zeile an und tippt die Anweisung ins Terminal. Claude (`--append-system-prompt`) und Codex (`developer_instructions`) bekommen die Anleitung automatisch. |
 | Sonstiges | `TestReports`, `MermaidScanner`, `SymbolFinder`, `AppUpdates` | Testberichte, Architekturdiagramme, Definitionen, Updates. |
 
 ## Datenablage

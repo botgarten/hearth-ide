@@ -82,6 +82,7 @@ private struct GeneralSettings: View {
     private let appearance = State(initialValue: AppAppearance.current)
     private let lastWindow = State(initialValue: QuitPreferences.onLastWindow)
     private let welcome = State(initialValue: AppModel.welcomeEnabled)
+    @AppStorage(JournalSupport.enabledKey) private var journalEnabled = true
     private let language = State(initialValue: AppLanguage.chosen)
 
     var body: some View {
@@ -124,6 +125,12 @@ private struct GeneralSettings: View {
                 }
                 Text("The built-in terminals use the font and colours of your iTerm2 profile when iTerm2 is selected.")
                     .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Overview") {
+                Toggle("Record steps and decisions as a tree (Overview)", isOn: $journalEnabled)
+                Text("Agents get the hearth-journal command and a short instruction so the Overview shows what they decided. Applies to newly started sessions; existing entries stay visible.")
+                    .font(.caption).foregroundStyle(.secondary)
+                RestartHint()
             }
             Section("Layout") {
                 Button("Reset layout") { model.layout.resetLayout() }

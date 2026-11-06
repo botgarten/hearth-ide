@@ -222,6 +222,13 @@ struct PaneView: View {
         case .sessions: InboxView()
         case .chat: ChatView()
         case .terminal: TerminalPaneView(root: model.workspaceRoot)
+        case .journal:
+            if let run = model.agents.selectedRun {
+                JournalView(run: run)
+            } else {
+                ContentUnavailableView("No session", systemImage: "list.bullet.indent",
+                                       description: Text("Select an agent session."))
+            }
         default:
             if let root = model.workspaceRoot {
                 workspaceContent(root)
@@ -244,7 +251,7 @@ struct PaneView: View {
         case .tests: TestsView(root: root)
         case .architecture: ArchitectureView(root: root)
         case .build: BuildDeployView(root: root)
-        case .sessions, .chat, .terminal: EmptyView()
+        case .sessions, .chat, .terminal, .journal: EmptyView()
         }
     }
 }

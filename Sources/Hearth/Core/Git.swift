@@ -4,10 +4,11 @@ enum InspectorTab: String, CaseIterable, Identifiable, Codable, Sendable {
     case sessions = "Sessions", chat = "Chat"
     case directory = "Directory", git = "Git", pipelines = "CI/CD", tests = "Tests", preview = "Preview", architecture = "Architecture"
     case terminal = "Terminal"
+    case journal = "Journal"
     case build = "Build & Deployment"
 
     /// Tabs that show files of the selected workspace (need a sandbox/session).
-    var needsWorkspace: Bool { self != .sessions && self != .chat && self != .terminal }
+    var needsWorkspace: Bool { self != .sessions && self != .chat && self != .terminal && self != .journal }
     var id: String { rawValue }
     /// Keep persisted raw values/IDs compatible with existing layouts and detached windows.
     var title: String {
@@ -21,6 +22,7 @@ enum InspectorTab: String, CaseIterable, Identifiable, Codable, Sendable {
         case .preview: String(localized: "Editor")
         case .architecture: String(localized: "Architecture")
         case .terminal: String(localized: "Terminal")
+        case .journal: String(localized: "Overview")
         case .build: String(localized: "Build & Deployment")
         }
     }
@@ -29,6 +31,7 @@ enum InspectorTab: String, CaseIterable, Identifiable, Codable, Sendable {
         case .sessions: "tray.full"
         case .chat: "bubble.left.and.bubble.right"
         case .terminal: "terminal"
+        case .journal: "list.bullet.indent"
         case .directory: "folder"
         case .git: "arrow.triangle.branch"
         case .pipelines: "point.3.filled.connected.trianglepath.dotted"
