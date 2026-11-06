@@ -1,6 +1,6 @@
 # Hearth IDE – Änderungen
 
-## Unveröffentlicht
+## 0.8.1 · 2026-11-06
 
 - Überblick: In schmalen Bereichen läuft die Ansicht nicht mehr über den Rand. Der Filter wird dort zum Menü, lange Titel brechen um.
 
