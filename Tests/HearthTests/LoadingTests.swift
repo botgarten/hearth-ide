@@ -28,6 +28,7 @@ struct LoadingTests {
         func play(job: Int) async throws {}
         func workflows() async throws -> [CIWorkflow] { [] }
         func run(ref: String, workflow: CIWorkflow?) async throws {}
+        func createChangeRequest(_ request: ChangeRequest) async throws -> URL { remote.webURL }
     }
 
     static func pipeline(_ id: Int, _ status: String) -> CIPipeline {

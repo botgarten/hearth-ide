@@ -5,26 +5,112 @@ import Foundation
 /// filters or other repository-controlled commands never run next to the user's keys.
 enum SandboxGitOperation: Sendable {
     case fetch, fetchUpstream, fastForward, clone(String)
+    /// Local, user-triggered writes (sandbox without network and keys).
+    case commit(message: String), merge(branch: String), mergeAbort
+    case stash(message: String, includeUntracked: Bool), stashApply(Int), stashPop(Int), stashDrop(Int)
+    /// Uploads the branch; `setUpstream` for a branch without upstream. Never forced.
+    case push(branch: String, setUpstream: Bool)
 
     var name: String {
         switch self {
         case .fetch, .fetchUpstream: "fetch"
-        case .fastForward: "merge"
+        case .fastForward, .merge: "merge"
+        case .mergeAbort: "merge-abort"
         case .clone: "clone"
+        case .commit: "commit"
+        case .stash, .stashApply, .stashPop, .stashDrop: "stash"
+        case .push: "push"
         }
     }
 
     /// Needs the network sandbox (SSH keys, keychain, port 22).
     var needsNetwork: Bool {
-        if case .fastForward = self { return false }
-        return true
+        switch self {
+        case .fetch, .fetchUpstream, .clone, .push: true
+        default: false
+        }
     }
+
+    /// Branch or ref names from the UI: plain refname characters, never an option.
+    static func validRef(_ value: String) -> Bool {
+        guard !value.isEmpty, value.count <= 200, !value.hasPrefix("-"), !value.hasPrefix("/"), !value.hasSuffix("/"),
+              !value.contains(".."), !value.contains("@{"), !value.hasSuffix(".lock"), !value.hasSuffix(".") else { return false }
+        return value.range(of: #"^[A-Za-z0-9._/+#@-]+$"#, options: .regularExpression) != nil
+    }
+
+    static func validMessage(_ value: String) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && value.count <= 10_000 && !value.unicodeScalars.contains("\0")
+    }
+
+    /// Prefix for local writes: no hooks, no filters from the config, no signing, no pager.
+    private static func localPrefix(identity: Bool) -> [String] {
+        var p = ["/usr/bin/env", "-u", "GIT_EDITOR", "GIT_TERMINAL_PROMPT=0", "GIT_EDITOR=true",
+                 "/usr/bin/git", "--no-pager", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null",
+                 "-c", "diff.external=", "-c", "submodule.recurse=false", "-c", "commit.gpgsign=false",
+                 "-c", "tag.gpgsign=false"]
+        if identity {
+            let id = globalIdentity
+            if let name = id.name { p += ["-c", "user.name=" + name] }
+            if let email = id.email { p += ["-c", "user.email=" + email] }
+        }
+        return p
+    }
+
+    /// Commits need an author; it comes from ~/.gitconfig, never from the repository.
+    static let globalIdentity: (name: String?, email: String?) = {
+        func read(_ key: String) -> String? {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            p.arguments = ["config", "--global", "--get", key]
+            p.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
+            let out = Pipe()
+            p.standardOutput = out
+            p.standardError = FileHandle.nullDevice
+            p.standardInput = FileHandle.nullDevice
+            guard (try? p.run()) != nil else { return nil }
+            let data = out.fileHandleForReading.readDataToEndOfFile()
+            p.waitUntilExit()
+            let value = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+            return value.isEmpty ? nil : value
+        }
+        return (read("user.name"), read("user.email"))
+    }()
 
     /// Only fixed operations, never an arbitrary command supplied by a repository.
     /// `repoOverrides`: neutralised repository config keys (see Git.networkSandboxOverrides).
     func command(repoOverrides: [String] = []) throws -> String {
         let args: [String]
         switch self {
+        case .commit(let message):
+            guard Self.validMessage(message) else { throw SandboxCommandError(String(localized: "The commit message is empty or invalid.")) }
+            guard Self.globalIdentity.name != nil, Self.globalIdentity.email != nil else {
+                throw SandboxCommandError(String(localized: "Git needs your name and email: git config --global user.name / user.email."))
+            }
+            return (Self.localPrefix(identity: true) + ["commit", "--no-verify", "--no-gpg-sign", "-m", message])
+                .map(Self.quote).joined(separator: " ")
+        case .merge(let branch):
+            guard Self.validRef(branch) else { throw SandboxCommandError(String(localized: "Invalid branch name.")) }
+            return (Self.localPrefix(identity: true) + ["merge", "--no-edit", "--no-verify", "--no-gpg-sign", "--no-stat", branch])
+                .map(Self.quote).joined(separator: " ")
+        case .mergeAbort:
+            return (Self.localPrefix(identity: false) + ["merge", "--abort"]).map(Self.quote).joined(separator: " ")
+        case .stash(let message, let untracked):
+            guard message.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }), message.count <= 200 else {
+                throw SandboxCommandError(String(localized: "Invalid stash message."))
+            }
+            var a = ["stash", "push"] + (untracked ? ["--include-untracked"] : [])
+            if !message.isEmpty { a += ["-m", message] }
+            return (Self.localPrefix(identity: true) + a).map(Self.quote).joined(separator: " ")
+        case .stashApply(let i), .stashPop(let i), .stashDrop(let i):
+            guard (0..<1000).contains(i) else { throw SandboxCommandError(String(localized: "Invalid stash.")) }
+            let verb: String
+            switch self { case .stashApply: verb = "apply"; case .stashPop: verb = "pop"; default: verb = "drop" }
+            return (Self.localPrefix(identity: true) + ["stash", verb, "stash@{\(i)}"]).map(Self.quote).joined(separator: " ")
+        case .push(let branch, let setUpstream):
+            guard Self.validRef(branch) else { throw SandboxCommandError(String(localized: "Invalid branch name.")) }
+            args = ["push", "--no-verify", "--no-recurse-submodules", "--progress"]
+                + (setUpstream ? ["--set-upstream", "origin", branch] : ["origin", "HEAD:refs/heads/" + branch])
         case .fetch: args = ["fetch", "--all", "--prune", "--no-recurse-submodules", "--progress"]
         case .fetchUpstream: args = ["fetch", "--prune", "--no-recurse-submodules", "--progress"]
         case .fastForward:

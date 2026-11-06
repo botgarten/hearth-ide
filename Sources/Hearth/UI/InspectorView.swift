@@ -492,12 +492,18 @@ struct GitView: View {
     private let newBranchName = State(initialValue: "")
     private let shownCommit = State(initialValue: String?.none)
     private let collapsed = State(initialValue: Set<String>())
+    @State private var commitMessage = ""
+    @State private var pendingMerge: Git.Branch?
+    @State private var pendingStashDrop: GitStash?
+    @State private var stashMessage: String?
+    @State private var stashUntracked = true
+    @State private var showChangeRequest = false
 
     static func color(for marker: String) -> Color {
         switch marker {
         case "M": .orange
         case "A", "U": .green
-        case "D": .red
+        case "D", "!": .red
         case "R": .blue
         default: .secondary
         }
@@ -510,7 +516,9 @@ struct GitView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     headerCard
+                    commitCard
                     section(String(localized: "Changes"), count: snapshot.changes.count) { changesList }
+                    section(String(localized: "Stashes"), count: snapshot.stashes.count) { stashList }
                     section("Branches", count: visibleBranches.count) { branchList }
                     section(String(localized: "Recent commits"), count: snapshot.recentCommits.count) { commitList }
                 }
@@ -535,6 +543,28 @@ struct GitView: View {
                                 isPresented: isPresent(pendingDiscard), presenting: pendingDiscard.wrappedValue) { c in
                 Button("Discard", role: .destructive) { Task { await discard(c) } }
             } message: { _ in Text("This cannot be undone.") }
+            .confirmationDialog(String(localized: "Merge “\(pendingMerge?.name ?? "")” into “\(snapshot.branch)”?"),
+                                isPresented: isPresent($pendingMerge), presenting: pendingMerge) { b in
+                Button("Merge") { Task { await sandboxOp(String(localized: "Merging \(b.name)…"), .merge(branch: b.name)) } }
+            } message: { _ in
+                Text(snapshot.changes.isEmpty ? "Runs in the Git sandbox. Conflicts stay in the files; “Abort merge” undoes it."
+                     : "There are uncommitted changes. Git refuses the merge if they conflict with it.")
+            }
+            .confirmationDialog(String(localized: "Drop stash “\(pendingStashDrop?.subject ?? "")”?"),
+                                isPresented: isPresent($pendingStashDrop), presenting: pendingStashDrop) { st in
+                Button("Drop", role: .destructive) { Task { await sandboxOp(String(localized: "Dropping stash…"), .stashDrop(st.index)) } }
+            } message: { _ in Text("This cannot be undone.") }
+            .alert("Stash changes", isPresented: Binding(get: { stashMessage != nil }, set: { if !$0 { stashMessage = nil } })) {
+                TextField("Message (optional)", text: Binding(get: { stashMessage ?? "" }, set: { stashMessage = $0 }))
+                Button("Stash") {
+                    let message = stashMessage ?? ""
+                    Task { await sandboxOp(String(localized: "Stashing…"), .stash(message: message, includeUntracked: stashUntracked)) }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: { Text("Saves the uncommitted changes (including new files) and restores a clean working tree.") }
+            .sheet(isPresented: $showChangeRequest) {
+                ChangeRequestSheet(root: root, snapshot: snapshot, branches: branches.wrappedValue)
+            }
             .alert("New branch", isPresented: Binding(get: { newBranchBase.wrappedValue != nil },
                                                         set: { if !$0 { newBranchBase.wrappedValue = nil } })) {
                 TextField("feature/…", text: newBranchName.projectedValue)
@@ -579,8 +609,25 @@ struct GitView: View {
                     Label("Pull", systemImage: "arrow.down.circle")
                 }
                 .disabled(snapshot.upstream == nil)
+                Button { Task { await push() } } label: {
+                    Label("Push", systemImage: "arrow.up.circle")
+                }
+                .disabled(snapshot.branch.isEmpty || snapshot.branch.hasPrefix("HEAD") || (snapshot.upstream != nil && snapshot.ahead == 0))
+                .help(snapshot.upstream == nil ? "Publish this branch to origin" : "Upload \(snapshot.ahead) commit(s)")
+                Button { showChangeRequest = true } label: {
+                    Label("MR/PR", systemImage: "arrow.triangle.pull")
+                }
+                .help("Open a merge request (GitLab) or pull request (GitHub) for this branch")
             }
             .controlSize(.small)
+            if snapshot.merging {
+                HStack {
+                    Label("Merge in progress", systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+                    Spacer()
+                    Button("Abort merge") { Task { await sandboxOp(String(localized: "Aborting merge…"), .mergeAbort) } }
+                }
+                .scaledFont(.caption).controlSize(.small)
+            }
         }
         .buttonStyle(.bordered)
         .padding(10)
@@ -610,38 +657,129 @@ struct GitView: View {
         }
     }
 
+    private var stagedChanges: [GitFileChange] { snapshot.changes.filter(\.isStaged) }
+    private var unstagedChanges: [GitFileChange] { snapshot.changes.filter(\.isUnstaged) }
+
     @ViewBuilder
     private var changesList: some View {
         if snapshot.changes.isEmpty {
             Label("Working tree clean", systemImage: "checkmark.circle").scaledFont(.callout).foregroundStyle(.secondary)
                 .padding(.leading, 6)
         }
-        ForEach(snapshot.changes) { change in
-            let url = URL(fileURLWithPath: root).appendingPathComponent(change.path)
-            HStack(spacing: 6) {
-                Text(change.marker).scaledFont(.callout, bold: true, mono: true)
-                    .foregroundStyle(Self.color(for: change.marker)).frame(width: 14)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(url.lastPathComponent).lineLimit(1)
-                    Text((change.path as NSString).deletingLastPathComponent).scaledFont(.caption2)
-                        .foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
+        if !stagedChanges.isEmpty {
+            groupHeader(String(localized: "Staged"), count: stagedChanges.count, actionTitle: String(localized: "Unstage all"), symbol: "minus.circle") {
+                Task { await run(String(localized: "Unstaging…")) { await Git.unstageAll(in: root) } }
+            }
+            ForEach(stagedChanges) { changeRow($0, staged: true) }
+        }
+        if !unstagedChanges.isEmpty {
+            groupHeader(String(localized: "Not staged"), count: unstagedChanges.count, actionTitle: String(localized: "Stage all"), symbol: "plus.circle") {
+                Task { await run(String(localized: "Staging…")) { await Git.stageAll(in: root) } }
+            }
+            ForEach(unstagedChanges) { changeRow($0, staged: false) }
+        }
+    }
+
+    private func groupHeader(_ title: String, count: Int, actionTitle: String, symbol: String, action: @escaping () -> Void) -> some View {
+        HStack {
+            Text("\(title) (\(count))").scaledFont(.caption, bold: true).foregroundStyle(.secondary)
+            Spacer()
+            Button(action: action) { Label(actionTitle, systemImage: symbol).scaledFont(.caption) }
+                .buttonStyle(.borderless)
+        }
+        .padding(.leading, 6).padding(.top, 4)
+    }
+
+    private func changeRow(_ change: GitFileChange, staged: Bool) -> some View {
+        let url = URL(fileURLWithPath: root).appendingPathComponent(change.path)
+        return HStack(spacing: 6) {
+            Text(change.marker).scaledFont(.callout, bold: true, mono: true)
+                .foregroundStyle(Self.color(for: change.marker)).frame(width: 14)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(url.lastPathComponent).lineLimit(1)
+                Text((change.path as NSString).deletingLastPathComponent).scaledFont(.caption2)
+                    .foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
+            }
+            Spacer()
+            if change.added + change.removed > 0 {
+                Text("+\(change.added)").foregroundStyle(.green).scaledFont(.caption, digits: true)
+                Text("-\(change.removed)").foregroundStyle(.red).scaledFont(.caption, digits: true)
+            }
+            Button {
+                Task { await run(staged ? String(localized: "Unstaging…") : String(localized: "Staging…")) {
+                    staged ? await Git.unstage([change.path], in: root) : await Git.stage([change.path], in: root)
+                } }
+            } label: { Image(systemName: staged ? "minus.circle" : "plus.circle") }
+                .buttonStyle(.borderless)
+                .help(staged ? "Unstage" : "Stage")
+        }
+        .interactiveRow(selected: model.editor.file == url && model.editor.mode == .diff) {
+            model.editor.open(url, mode: .diff)
+        }
+        .help("Click for diff")
+        .contextMenu {
+            Button {
+                Task { await run(staged ? String(localized: "Unstaging…") : String(localized: "Staging…")) {
+                    staged ? await Git.unstage([change.path], in: root) : await Git.stage([change.path], in: root)
+                } }
+            } label: { Label(staged ? "Unstage" : "Stage", systemImage: staged ? "minus.circle" : "plus.circle") }
+            FileContextMenu(url: url, changed: true)
+            Divider()
+            Button(role: .destructive) { pendingDiscard.wrappedValue = change } label: {
+                Label("Discard changes…", systemImage: "arrow.uturn.backward")
+            }
+        }
+    }
+
+    private var commitCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            TextField("Commit message", text: $commitMessage, axis: .vertical)
+                .lineLimit(2...6)
+                .textFieldStyle(.roundedBorder)
+            HStack {
+                Button { Task { await commit() } } label: {
+                    Label(stagedChanges.isEmpty ? String(localized: "Commit") : String(localized: "Commit (\(stagedChanges.count))"),
+                          systemImage: "checkmark.circle")
                 }
+                .buttonStyle(.borderedProminent)
+                .disabled(stagedChanges.isEmpty || !SandboxGitOperation.validMessage(commitMessage))
+                .help(stagedChanges.isEmpty ? "Stage changes first" : "Commit the staged changes in the Git sandbox (hooks do not run)")
                 Spacer()
-                if change.added + change.removed > 0 {
-                    Text("+\(change.added)").foregroundStyle(.green).scaledFont(.caption, digits: true)
-                    Text("-\(change.removed)").foregroundStyle(.red).scaledFont(.caption, digits: true)
+                Button { stashMessage = "" } label: { Label("Stash", systemImage: "tray.and.arrow.down") }
+                    .disabled(snapshot.changes.isEmpty)
+                    .help("Put the uncommitted changes aside")
+            }
+            .controlSize(.small)
+        }
+        .padding(10)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    @ViewBuilder
+    private var stashList: some View {
+        if snapshot.stashes.isEmpty {
+            Text("No stashes").scaledFont(.callout).foregroundStyle(.secondary).padding(.leading, 6)
+        }
+        ForEach(snapshot.stashes) { st in
+            HStack(spacing: 6) {
+                Image(systemName: "tray.full").foregroundStyle(.secondary).frame(width: 16)
+                Text(st.subject).scaledFont(.callout).lineLimit(1)
+                Spacer()
+                Button { Task { await sandboxOp(String(localized: "Applying stash…"), .stashPop(st.index)) } } label: {
+                    Image(systemName: "arrow.uturn.up.circle")
                 }
+                .buttonStyle(.borderless).help("Restore and remove this stash (pop)")
             }
-            .interactiveRow(selected: model.editor.file == url && model.editor.mode == .diff) {
-                model.editor.open(url, mode: .diff)
-            }
-            .help("Click for diff")
+            .interactiveRow { }
             .contextMenu {
-                FileContextMenu(url: url, changed: true)
-                Divider()
-                Button(role: .destructive) { pendingDiscard.wrappedValue = change } label: {
-                    Label("Discard changes…", systemImage: "arrow.uturn.backward")
+                Button { Task { await sandboxOp(String(localized: "Applying stash…"), .stashPop(st.index)) } } label: {
+                    Label("Pop (restore and remove)", systemImage: "arrow.uturn.up.circle")
                 }
+                Button { Task { await sandboxOp(String(localized: "Applying stash…"), .stashApply(st.index)) } } label: {
+                    Label("Apply (keep stash)", systemImage: "arrow.uturn.up")
+                }
+                Divider()
+                Button(role: .destructive) { pendingStashDrop = st } label: { Label("Drop…", systemImage: "trash") }
             }
         }
     }
@@ -687,6 +825,9 @@ struct GitView: View {
                     Button { pendingCheckout.wrappedValue = b } label: { Label("Check out", systemImage: "arrow.right.circle") }
                 }
                 Button { startNewBranch(from: b.name) } label: { Label("New branch from here…", systemImage: "plus") }
+                if !b.isCurrent {
+                    Button { pendingMerge = b } label: { Label("Merge into current branch…", systemImage: "arrow.triangle.merge") }
+                }
                 Button {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(b.name, forType: .string)
@@ -723,6 +864,10 @@ struct GitView: View {
         String(localized: "Switch to “\(pendingCheckout.wrappedValue?.localName ?? "")”?")
     }
 
+    private func isPresent<T>(_ binding: Binding<T?>) -> Binding<Bool> {
+        Binding(get: { binding.wrappedValue != nil }, set: { if !$0 { binding.wrappedValue = nil } })
+    }
+
     private func isPresent<T>(_ state: State<T?>) -> Binding<Bool> {
         Binding(get: { state.wrappedValue != nil }, set: { if !$0 { state.wrappedValue = nil } })
     }
@@ -740,13 +885,37 @@ struct GitView: View {
         busy.wrappedValue = label
         let result = await op()
         busy.wrappedValue = nil
+        report(result)
+        model.workspace.refreshNow()
+        await reloadBranches()
+    }
+
+    private func sandboxOp(_ label: String, _ op: SandboxGitOperation) async {
+        await run(label) { await model.networkGit(op, in: root) }
+    }
+
+    private func commit() async {
+        let message = commitMessage
+        busy.wrappedValue = String(localized: "Committing…")
+        let result = await model.networkGit(.commit(message: message), in: root)
+        busy.wrappedValue = nil
+        if result.ok { commitMessage = "" }
+        report(result)
+        model.workspace.refreshNow()
+        await reloadBranches()
+    }
+
+    private func push() async {
+        let name = snapshot.branch
+        await sandboxOp(String(localized: "Pushing \(name)…"), .push(branch: name, setUpstream: snapshot.upstream == nil))
+    }
+
+    private func report(_ result: Git.OpResult) {
         if result.ok {
             model.toast(result.output.lastNonEmptyLines(1).isEmpty ? String(localized: "Done") : result.output.lastNonEmptyLines(1))
         } else {
             model.banner = "Git: " + result.output.lastNonEmptyLines(4)
         }
-        model.workspace.refreshNow()
-        await reloadBranches()
     }
 
     private func discard(_ change: GitFileChange) async {
@@ -754,6 +923,91 @@ struct GitView: View {
             if change.code == "??" { return await Git.mutate(["clean", "-f", "--", change.path], in: root) }
             return await Git.mutate(["restore", "--staged", "--worktree", "--source=HEAD", "--", change.path], in: root)
         }
+    }
+}
+
+/// Opens a merge request (GitLab) or pull request (GitHub) for the current branch through the
+/// provider's API, with the separate write token approved for that server.
+struct ChangeRequestSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let root: String
+    let snapshot: GitSnapshot
+    let branches: [Git.Branch]
+    @State private var title = ""
+    @State private var text = ""
+    @State private var target = ""
+    @State private var draft = false
+    @State private var remote: CIRemote?
+    @State private var checked = false
+    @State private var sending = false
+    @State private var error: String?
+
+    private var targets: [String] {
+        let names = branches.filter(\.isRemote).map(\.localName).filter { $0 != snapshot.branch && $0 != "HEAD" }
+        return Array(Set(names)).sorted()
+    }
+    private var published: Bool { snapshot.upstream != nil }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(remote.map { $0.provider == .gitHub ? String(localized: "New pull request") : String(localized: "New merge request") }
+                 ?? String(localized: "New merge/pull request")).font(.title3.bold())
+            if checked, remote == nil {
+                Text("The remote “origin” is not a GitLab or GitHub repository.").foregroundStyle(.red)
+            } else {
+                Text("\(snapshot.branch) → \(target.isEmpty ? "…" : target)").scaledFont(.callout, mono: true)
+                Picker("Target branch", selection: $target) {
+                    ForEach(targets, id: \.self) { Text($0).tag($0) }
+                }
+                TextField("Title", text: $title).textFieldStyle(.roundedBorder)
+                TextField("Description (optional)", text: $text, axis: .vertical)
+                    .lineLimit(3...8).textFieldStyle(.roundedBorder)
+                Toggle("Draft", isOn: $draft)
+                if !published || snapshot.ahead > 0 {
+                    Label(published ? "There are commits not pushed yet. Push first, they will be missing otherwise."
+                                    : "This branch is not on the server yet. Push it first.", systemImage: "exclamationmark.triangle")
+                        .scaledFont(.caption).foregroundStyle(.orange)
+                }
+            }
+            if let error { Text(error).scaledFont(.caption).foregroundStyle(.red) }
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(sending ? String(localized: "Creating…") : String(localized: "Create")) { Task { await create() } }
+                    .keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
+                    .disabled(sending || remote == nil || !published || title.trimmingCharacters(in: .whitespaces).isEmpty
+                              || !ChangeRequest.valid(target) || !ChangeRequest.valid(snapshot.branch))
+            }
+        }
+        .padding(20).frame(width: 460)
+        .task {
+            remote = await CIRemote.of(repo: root)
+            checked = true
+            if let r = remote { await model.ci.load(for: r.origin) }
+            target = ["main", "master", "develop"].first(where: targets.contains) ?? targets.first ?? ""
+            title = snapshot.recentCommits.first.map { String($0.drop { $0 != " " }.dropFirst()) } ?? ""
+        }
+    }
+
+    private func create() async {
+        guard let r = remote else { return }
+        guard let api = model.ci.api(for: r, writing: true) else {
+            error = String(localized: "Please approve separate write access for this \(r.provider.name) server first (CI/CD pane).")
+            return
+        }
+        sending = true
+        error = nil
+        do {
+            let url = try await api.createChangeRequest(ChangeRequest(
+                title: title.trimmingCharacters(in: .whitespaces), description: text, source: snapshot.branch, target: target, draft: draft))
+            NSWorkspace.shared.open(url)
+            model.toast(String(localized: "Created: \(url.absoluteString)"))
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
+        sending = false
     }
 }
 

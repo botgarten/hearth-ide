@@ -94,4 +94,51 @@ struct LiveSandboxTests {
         let output = String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
         try require(changed && reader.journal.node("s1")?.title == "from sandbox", "journal not written: \(output)")
     }
+
+    /// Commit, stash and merge really work in the local Git sandbox (and stay out of the network sandbox).
+    @Test func commitStashAndMergeRunInTheLocalSandbox() async throws {
+        guard SandboxGitOperation.globalIdentity.name != nil, SandboxGitOperation.globalIdentity.email != nil else { return }
+        let (dir, support) = try project()
+        defer { try? FileManager.default.removeItem(at: dir); try? FileManager.default.removeItem(at: support) }
+        func host(_ args: [String]) throws {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            p.arguments = ["-C", dir.path, "-c", "user.name=t", "-c", "user.email=t@example.test", "-c", "commit.gpgsign=false"] + args
+            p.standardOutput = FileHandle.nullDevice
+            p.standardError = FileHandle.nullDevice
+            try p.run()
+            p.waitUntilExit()
+            try require(p.terminationStatus == 0, "git \(args.joined(separator: " ")) failed")
+        }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try host(["init", "-q", "-b", "main"])
+        try Data("one\n".utf8).write(to: dir.appendingPathComponent("a.txt"))
+        try host(["add", "a.txt"])
+        try host(["commit", "-q", "-m", "first"])
+        try host(["switch", "-q", "-c", "feature"])
+        try Data("feature\n".utf8).write(to: dir.appendingPathComponent("b.txt"))
+        try host(["add", "b.txt"])
+        try host(["commit", "-q", "-m", "feature work"])
+        try host(["switch", "-q", "main"])
+
+        let runner = NonoCommandRunner(root: dir.path, purpose: .gitLocal)
+        let git = SandboxGitRunner(runner: runner, root: dir)
+
+        try Data("two\n".utf8).write(to: dir.appendingPathComponent("a.txt"))
+        try host(["add", "a.txt"])
+        let committed = await git.run(.commit(message: "Second 'quoted' commit"))
+        try require(committed.ok, "commit failed: \(committed.output)")
+
+        try Data("wip\n".utf8).write(to: dir.appendingPathComponent("c.txt"))
+        let stashed = await git.run(.stash(message: "wip", includeUntracked: true))
+        try require(stashed.ok && !FileManager.default.fileExists(atPath: dir.appendingPathComponent("c.txt").path), "stash failed: \(stashed.output)")
+        let popped = await git.run(.stashPop(0))
+        try require(popped.ok && FileManager.default.fileExists(atPath: dir.appendingPathComponent("c.txt").path), "pop failed: \(popped.output)")
+
+        try FileManager.default.removeItem(at: dir.appendingPathComponent("c.txt"))
+        let merged = await git.run(.merge(branch: "feature"))
+        try require(merged.ok && FileManager.default.fileExists(atPath: dir.appendingPathComponent("b.txt").path), "merge failed: \(merged.output)")
+        let log = await Git.run(["log", "--format=%s", "-5"], in: dir.path) ?? ""
+        try require(log.contains("Second 'quoted' commit"), "commit message lost: \(log)")
+    }
 }

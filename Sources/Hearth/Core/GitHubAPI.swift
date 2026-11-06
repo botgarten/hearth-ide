@@ -136,6 +136,16 @@ struct GitHubAPI: CIClient {
 
     // MARK: Actions
 
+    func createChangeRequest(_ cr: ChangeRequest) async throws -> URL {
+        guard ChangeRequest.valid(cr.source), ChangeRequest.valid(cr.target) else { throw APIError.http(422, "invalid branch") }
+        let data = try await request("POST", "/repos/\(repo)/pulls", body: [
+            "title": cr.title, "body": cr.description, "head": cr.source, "base": cr.target, "draft": cr.draft])
+        guard let web = JSON.parse(data)?["html_url"]?.string, let url = URL(string: web), url.scheme == "https" else {
+            throw APIError.http(502, "no html_url in response")
+        }
+        return url
+    }
+
     func retry(pipeline: Int) async throws { _ = try await request("POST", "/repos/\(repo)/actions/runs/\(pipeline)/rerun-failed-jobs") }
     func cancel(pipeline: Int) async throws { _ = try await request("POST", "/repos/\(repo)/actions/runs/\(pipeline)/cancel") }
     func retry(job: Int) async throws { _ = try await request("POST", "/repos/\(repo)/actions/jobs/\(job)/rerun") }

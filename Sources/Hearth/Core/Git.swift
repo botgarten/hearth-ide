@@ -57,9 +57,26 @@ struct GitFileChange: Identifiable, Hashable, Sendable {
     var removed = 0
 
     var marker: String {
+        if isConflict { return "!" }
         let c = code.trimmingCharacters(in: .whitespaces)
         return c == "??" ? "U" : String(c.prefix(1))
     }
+
+    /// Unmerged paths (porcelain: DD, AU, UD, UA, DU, AA, UU).
+    var isConflict: Bool { ["DD", "AU", "UD", "UA", "DU", "AA", "UU"].contains(code) }
+    /// Part of the next commit (index column set).
+    var isStaged: Bool {
+        guard code.count == 2, !isConflict, code != "??" else { return false }
+        return code.first != " "
+    }
+    /// Changed in the working tree, or new (not yet in the index).
+    var isUnstaged: Bool { isConflict || code == "??" || (code.count == 2 && code.last != " ") }
+}
+
+struct GitStash: Identifiable, Hashable, Sendable {
+    let index: Int
+    let subject: String
+    var id: Int { index }
 }
 
 struct GitSnapshot: Sendable {
@@ -70,6 +87,9 @@ struct GitSnapshot: Sendable {
     var behind = 0
     var changes: [GitFileChange] = []
     var recentCommits: [String] = []
+    /// A merge is in progress (conflicts to resolve, or waiting for the commit).
+    var merging = false
+    var stashes: [GitStash] = []
 
     /// Status marker per repo-relative path, including all parent directories.
     var markers: [String: String] {
@@ -199,7 +219,9 @@ enum Git {
 
     static func safeReadArguments(_ args: [String]) -> [String]? {
         guard let command = args.first,
-              ["rev-parse", "status", "diff", "log", "for-each-ref", "ls-files", "config", "show"].contains(command) else { return nil }
+              ["rev-parse", "status", "diff", "log", "for-each-ref", "ls-files", "config", "show", "stash"].contains(command) else { return nil }
+        // `stash` only to list: apply/pop/drop run in the sandbox.
+        if command == "stash", args.count < 2 || args[1] != "list" { return nil }
         if ["diff", "show", "log"].contains(command) {
             return [command, "--no-ext-diff", "--no-textconv"] + args.dropFirst()
         }
@@ -253,6 +275,8 @@ enum Git {
         }
         s.recentCommits = (await run(["log", "--oneline", "-8"], in: dir))?
             .split(separator: "\n").map(String.init) ?? []
+        s.merging = FileManager.default.fileExists(atPath: dir + "/.git/MERGE_HEAD")
+        s.stashes = await stashes(in: dir)
         return s
     }
 
@@ -344,6 +368,29 @@ enum Git {
         if locals.contains(branch.localName) { return await mutate(["switch", branch.localName], in: dir) }
         return await mutate(["switch", "--track", branch.name], in: dir)
     }
+
+    static func stashes(in dir: String) async -> [GitStash] {
+        guard let out = await run(["stash", "list", "--format=%gd\t%gs"], in: dir) else { return [] }
+        return out.split(separator: "\n").compactMap { line in
+            let f = line.split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+            guard f.count == 2, f[0].hasPrefix("stash@{"), let close = f[0].firstIndex(of: "}"),
+                  let n = Int(f[0][f[0].index(f[0].startIndex, offsetBy: 7)..<close]) else { return nil }
+            return GitStash(index: n, subject: f[1])
+        }
+    }
+
+    // Staging touches only the index, so it stays a host action.
+    static func stage(_ paths: [String], in dir: String) async -> OpResult {
+        await mutate(["add", "--"] + paths, in: dir)
+    }
+
+    static func stageAll(in dir: String) async -> OpResult { await mutate(["add", "-A"], in: dir) }
+
+    static func unstage(_ paths: [String], in dir: String) async -> OpResult {
+        await mutate(["restore", "--staged", "--"] + paths, in: dir)
+    }
+
+    static func unstageAll(in dir: String) async -> OpResult { await mutate(["restore", "--staged", "--", "."], in: dir) }
 
     static func show(commit: String, in dir: String) async -> String {
         await run(["show", "--stat", "--patch", "--format=fuller", "--end-of-options", commit, "--"], in: dir) ?? ""

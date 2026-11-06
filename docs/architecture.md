@@ -116,6 +116,8 @@ sequenceDiagram
   end
 ```
 
+**Commit, Merge, Stash:** `AppModel.networkGit(.commit/.merge/.stash…)` führt feste Befehle in `.gitLocal` aus (kein Netz, keine Schlüssel, `core.hooksPath=/dev/null`, kein Signieren, Autor aus `~/.gitconfig`); Branch-Namen und Nachrichten werden geprüft und einzeln gequotet. **Push** läuft in `.gitNetwork` (nie `--force`, nur ein Branch). Vormerken/Aufheben ändert nur den Index und bleibt eine gehärtete Host-Aktion (`Git.mutate`). **MR/PR:** `CIClient.createChangeRequest` mit dem Schreib-Token des Origins.
+
 **Pull:** `AppModel.pull` → `SandboxGitRunner(.fetchUpstream)` in `.gitNetwork` → bei Erfolg
 `SandboxGitRunner(.fastForward)` in `.gitLocal`.
 

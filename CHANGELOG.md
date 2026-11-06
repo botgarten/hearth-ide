@@ -1,5 +1,10 @@
 # Hearth IDE – Änderungen
 
+## Unveröffentlicht
+
+- **Git-Aktionen im Git-Bereich:** Änderungen **vormerken** (Stage) und wieder aufheben, einzeln oder alle; **Commit** mit Nachricht; **Push** (veröffentlicht einen neuen Branch mit Upstream, nie erzwungen); **Merge** eines Branches in den aktuellen (Kontextmenü) samt „Merge abbrechen“; **Stash** (Änderungen beiseitelegen, anwenden, Pop, verwerfen); **MR/PR** erstellt einen Merge Request (GitLab) oder Pull Request (GitHub) über die API und öffnet ihn im Browser, mit dem separat freigegebenen Schreib-Token des CI/CD-Bereichs. Commit, Merge und Stash laufen in der Git-Sandbox ohne Netz, Push in der Netzwerk-Sandbox; Git-Hooks laufen dabei bewusst nicht, Commits werden nicht signiert. Autor kommt aus `~/.gitconfig`.
+- **Repository beim Start klonen:** Im Dialog „Agent starten“ gibt es neben „Vorhandener Ordner“ jetzt „Repository klonen“. Das Klonen läuft in der Git-Sandbox, danach startet der Agent im neuen Ordner.
+
 ## 0.7.0 · 2026-11-06
 
 - **Überblick (Anti-Burnout):** Neuer Bereich „Überblick“ zeigt den Verlauf einer Sitzung als Baum aus Schritten, Entscheidungen (mit Begründung und verworfenen Alternativen) und offenen Fragen, damit man nicht den ganzen Agent-Text lesen muss. Der Agent trägt sie mit dem Befehl `hearth-journal` ein (liegt in der Sandbox auf dem PATH, schreibt nach `journal.jsonl` im Sitzungsordner). Claude Code und Codex bekommen die Anleitung automatisch als System-Prompt, bei den anderen Agenten genügt der Knopf „Agent bitten, seine Arbeit festzuhalten“. Filter: Alle, Schritte, Entscheidungen, Offen. Jeden Eintrag kann man **revidieren**: Er bleibt durchgestrichen mit Grund im Baum, und Hearth schickt dem Agenten eine passende Anweisung ins Terminal. In den Einstellungen (Allgemein › Überblick) lässt sich das Feature ein- und ausschalten.

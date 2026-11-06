@@ -156,6 +156,18 @@ protocol CIClient: Sendable {
     func workflows() async throws -> [CIWorkflow]
     /// Starts a new pipeline (GitLab) or the given workflow (GitHub) for a branch.
     func run(ref: String, workflow: CIWorkflow?) async throws
+    /// Opens a merge request (GitLab) or pull request (GitHub) and returns its page.
+    func createChangeRequest(_ request: ChangeRequest) async throws -> URL
+}
+
+struct ChangeRequest: Sendable, Equatable {
+    var title: String
+    var description: String
+    var source: String
+    var target: String
+    var draft: Bool
+
+    static func valid(_ value: String) -> Bool { SandboxGitOperation.validRef(value) }
 }
 
 struct CIWorkflow: Identifiable, Hashable, Sendable {
@@ -248,7 +260,7 @@ struct GitLabAPI: CIClient {
         remote.path.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? remote.path
     }
 
-    func authorizedRequest(_ method: String, _ path: String, query: [URLQueryItem] = []) throws -> URLRequest {
+    func authorizedRequest(_ method: String, _ path: String, query: [URLQueryItem] = [], body: [String: Any]? = nil) throws -> URLRequest {
         guard CIOrigin.parse(remote.origin.value) == remote.origin,
               remote.origin == credential.origin else { throw APIError.unauthorizedOrigin }
         guard method == "GET" || credential.allowsWrites else { throw APIError.readOnly }
@@ -258,12 +270,16 @@ struct GitLabAPI: CIClient {
         var req = URLRequest(url: comps.url!)
         req.httpMethod = method
         req.setValue(credential.token, forHTTPHeaderField: "PRIVATE-TOKEN")
+        if let body {
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        }
         req.timeoutInterval = 20
         return req
     }
 
-    private func request(_ method: String, _ path: String, query: [URLQueryItem] = []) async throws -> Data {
-        let req = try authorizedRequest(method, path, query: query)
+    private func request(_ method: String, _ path: String, query: [URLQueryItem] = [], body: [String: Any]? = nil) async throws -> Data {
+        let req = try authorizedRequest(method, path, query: query, body: body)
         let (data, resp) = try await session.data(for: req)
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else { throw APIError.http(code, String(decoding: data, as: UTF8.self)) }
@@ -292,6 +308,17 @@ struct GitLabAPI: CIClient {
     }
 
     func workflows() async throws -> [CIWorkflow] { [] }
+
+    func createChangeRequest(_ cr: ChangeRequest) async throws -> URL {
+        guard ChangeRequest.valid(cr.source), ChangeRequest.valid(cr.target) else { throw APIError.http(422, "invalid branch") }
+        let title = cr.draft && !cr.title.lowercased().hasPrefix("draft:") ? "Draft: " + cr.title : cr.title
+        let data = try await request("POST", "/projects/\(project)/merge_requests", body: [
+            "source_branch": cr.source, "target_branch": cr.target, "title": title, "description": cr.description])
+        guard let web = JSON.parse(data)?["web_url"]?.string, let url = URL(string: web), url.scheme == "https" else {
+            throw APIError.http(502, "no web_url in response")
+        }
+        return url
+    }
 
     func run(ref: String, workflow: CIWorkflow?) async throws { try await runPipeline(ref: ref) }
 
