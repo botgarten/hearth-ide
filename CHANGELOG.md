@@ -1,6 +1,6 @@
 # Hearth IDE – Änderungen
 
-## Unveröffentlicht
+## 0.7.0 · 2026-11-06
 
 - **Überblick (Anti-Burnout):** Neuer Bereich „Überblick“ zeigt den Verlauf einer Sitzung als Baum aus Schritten, Entscheidungen (mit Begründung und verworfenen Alternativen) und offenen Fragen, damit man nicht den ganzen Agent-Text lesen muss. Der Agent trägt sie mit dem Befehl `hearth-journal` ein (liegt in der Sandbox auf dem PATH, schreibt nach `journal.jsonl` im Sitzungsordner). Claude Code und Codex bekommen die Anleitung automatisch als System-Prompt, bei den anderen Agenten genügt der Knopf „Agent bitten, seine Arbeit festzuhalten“. Filter: Alle, Schritte, Entscheidungen, Offen. Jeden Eintrag kann man **revidieren**: Er bleibt durchgestrichen mit Grund im Baum, und Hearth schickt dem Agenten eine passende Anweisung ins Terminal. In den Einstellungen (Allgemein › Überblick) lässt sich das Feature ein- und ausschalten.
 
