@@ -6,7 +6,7 @@ in the chat area and adds an inspector with directory, Git, editor, tests,
 architecture (Mermaid), Build & Deployment and CI/CD (GitLab pipelines and
 GitHub Actions).
 
-Website: <https://pvanissem.github.io/hearth-ide/> · Deutsch: <https://pvanissem.github.io/hearth-ide/de/>
+Website: <https://botgarten.github.io/hearth-ide/> · Deutsch: <https://botgarten.github.io/hearth-ide/de/>
 
 ## Agents in the sandbox
 
@@ -80,7 +80,7 @@ different class with the same name also shows up.
 ## Installation
 
 ```bash
-curl -fsSL https://github.com/pvanissem/hearth-ide/releases/latest/download/install.sh | bash
+curl -fsSL https://github.com/botgarten/hearth-ide/releases/latest/download/install.sh | bash
 ```
 
 Downloads the latest version from GitHub Releases, verifies its SHA-256
