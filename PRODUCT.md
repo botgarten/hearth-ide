@@ -24,7 +24,7 @@ Agent-agnostic and sandbox-first: Hearth does not ship its own model or agent; i
 
 ## Operating Context
 
-- Install: `curl -fsSL https://github.com/pvanissem/hearth-ide/releases/latest/download/install.sh | bash` (SHA-256 verified, installs to /Applications, updates from inside the app).
+- Install: `curl -fsSL https://github.com/botgarten/hearth-ide/releases/latest/download/install.sh | bash` (SHA-256 verified, installs to /Applications, updates from inside the app).
 - Start: pick a folder and an agent; the agent runs as a terminal in the chat area; the inbox shows running / needs input / done (Claude Code via hooks, Codex via notify).
 - Settings: extra domains, ports, folders, per-project folders, credentials in the keychain (nono proxy injection so the sandbox only sees a placeholder token).
 

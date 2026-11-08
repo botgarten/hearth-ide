@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Hearth IDE installer / updater (Apple Silicon).
 #
-#   curl -fsSL https://github.com/pvanissem/hearth-ide/releases/latest/download/install.sh | bash
+#   curl -fsSL https://github.com/botgarten/hearth-ide/releases/latest/download/install.sh | bash
 #
 # Downloads the latest release from GitHub Releases, verifies its SHA-256,
 # installs "Hearth IDE.app" into /Applications (or ~/Applications without write
 # access) and starts it. Run again to update.
 set -euo pipefail
 
-BASE_URL="${HEARTH_BASE_URL:-https://github.com/pvanissem/hearth-ide/releases/latest/download}"
+BASE_URL="${HEARTH_BASE_URL:-https://github.com/botgarten/hearth-ide/releases/latest/download}"
 ASSET="hearth-macos-arm64.zip"
 APP_NAME="Hearth IDE.app"
 NO_OPEN=false

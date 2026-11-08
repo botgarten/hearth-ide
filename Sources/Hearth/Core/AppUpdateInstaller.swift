@@ -5,7 +5,7 @@ import Foundation
 /// verified by install.sh), which starts the new version. On failure the old,
 /// untouched app is reopened and the result is reported on the next launch.
 enum AppUpdateInstaller {
-    static let installerURL = "https://github.com/pvanissem/hearth-ide/releases/latest/download/install.sh"
+    static let installerURL = "https://github.com/botgarten/hearth-ide/releases/latest/download/install.sh"
 
     static var supportDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/Hearth IDE")

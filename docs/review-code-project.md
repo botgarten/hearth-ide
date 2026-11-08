@@ -229,7 +229,7 @@ Mini-Projekt gefunden. Maven ist auf den GitHub-Runnern installiert.
 
 ### P1 · Mittel · Kein Branch-Schutz
 
-`gh api repos/pvanissem/hearth-ide/branches/main/protection` antwortet „Branch not
+`gh api repos/botgarten/hearth-ide/branches/main/protection` antwortet „Branch not
 protected“. Von heute neun Releases gingen v0.4.1 per PR raus, v0.4.2–v0.4.4 als
 Direkt-Push. `release.sh` lässt die Tests lokal laufen, das fängt viel ab. Ein Push
 ohne Release läuft aber erst nach dem Push durch CI.
@@ -250,7 +250,7 @@ Release-Notes auf GitHub, der Update-Dialog in der App (er liest `CHANGELOG.md`)
 
 `git remote -v` zeigt `git@github.com:pvanissem/hearth.git`. GitHub leitet um und warnt
 bei jedem Push. **Vorschlag:**
-`git remote set-url origin git@github.com:pvanissem/hearth-ide.git`.
+`git remote set-url origin git@github.com:botgarten/hearth-ide.git`.
 
 ### P5 · Niedrig · nono-Updates
 

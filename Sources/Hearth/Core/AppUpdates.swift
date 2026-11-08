@@ -48,12 +48,12 @@ struct UpdateResult: Equatable, Sendable {
 }
 
 struct UpdateService: Sendable {
-    static let feed = URL(string: "https://github.com/pvanissem/hearth-ide/releases/latest/download/latest-version.txt")!
-    static let download = URL(string: "https://github.com/pvanissem/hearth-ide/releases/latest/download/hearth-macos-arm64.zip")!
-    static let installerCommand = "curl -fsSL https://github.com/pvanissem/hearth-ide/releases/latest/download/install.sh | bash"
+    static let feed = URL(string: "https://github.com/botgarten/hearth-ide/releases/latest/download/latest-version.txt")!
+    static let download = URL(string: "https://github.com/botgarten/hearth-ide/releases/latest/download/hearth-macos-arm64.zip")!
+    static let installerCommand = "curl -fsSL https://github.com/botgarten/hearth-ide/releases/latest/download/install.sh | bash"
     var session: URLSession = UpdateTransport.session
 
-    static let changelogURL = URL(string: "https://github.com/pvanissem/hearth-ide/releases/latest/download/CHANGELOG.md")!
+    static let changelogURL = URL(string: "https://github.com/botgarten/hearth-ide/releases/latest/download/CHANGELOG.md")!
 
     /// Release notes published with each release (nil when missing, e.g. for old releases).
     func changelog(maxBytes: Int = 200_000) async -> String? {

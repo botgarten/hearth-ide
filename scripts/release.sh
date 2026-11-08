@@ -13,7 +13,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-REPO="${HEARTH_REPO:-pvanissem/hearth-ide}"
+REPO="${HEARTH_REPO:-botgarten/hearth-ide}"
 
 VERSION="${1:-}"
 if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then

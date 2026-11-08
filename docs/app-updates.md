@@ -19,7 +19,7 @@
 
 Die Quelle ist die Datei, die `scripts/release.sh` an jedes GitHub-Release hängt:
 
-`https://github.com/pvanissem/hearth-ide/releases/latest/download/latest-version.txt`
+`https://github.com/botgarten/hearth-ide/releases/latest/download/latest-version.txt`
 
 Akzeptiert werden ausschließlich stabile Versionsnummern `vMAJOR.MINOR.PATCH`
 oder `MAJOR.MINOR.PATCH`. Der Vergleich erfolgt numerisch, nicht alphabetisch.
