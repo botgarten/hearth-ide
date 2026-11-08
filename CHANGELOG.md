@@ -1,5 +1,9 @@
 # Hearth IDE – Änderungen
 
+## Unveröffentlicht
+
+- **Sitzung wählen:** Im Dialog „Agent starten“ erscheint unter „Sitzung“ eine Auswahl zwischen „Neue Sitzung“ und den letzten fortsetzbaren Sitzungen dieses Agenten im Ordner. Im Willkommensbildschirm setzt ein Klick auf einen Ordner die letzte Sitzung fort (sofern möglich), der Plus-Knopf startet eine neue.
+
 ## 0.8.1 · 2026-11-06
 
 - Überblick: In schmalen Bereichen läuft die Ansicht nicht mehr über den Rand. Der Filter wird dort zum Menü, lange Titel brechen um.

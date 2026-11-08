@@ -10,6 +10,8 @@ struct StartAgentSheet: View {
     private let kind = State(initialValue: AgentKind.claude)
     private let installed = State(initialValue: [AgentKind: Bool]())
     @State private var cloning = false
+    /// Earlier session to continue; nil starts a new one.
+    @State private var resumeID: String?
     @State private var cloneURL = ""
     @State private var cloneParent = NSHomeDirectory()
     @State private var cloneName = ""
@@ -72,6 +74,8 @@ struct StartAgentSheet: View {
                 .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
             }
 
+            if !cloning, !earlierSessions.isEmpty { sessionSection }
+
             HStack {
                 if kind.wrappedValue != .shell {
                     Button("Sign in…") { start(.login) }
@@ -80,7 +84,8 @@ struct StartAgentSheet: View {
                 }
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button(cloning ? String(localized: "Clone and start") : String(localized: "Start")) {
+                Button(cloning ? String(localized: "Clone and start")
+                       : resumeID != nil ? String(localized: "Continue") : String(localized: "Start")) {
                     if cloning { cloneAndStart() } else { start(.session) }
                 }
                 .keyboardShortcut(.defaultAction)
@@ -90,6 +95,8 @@ struct StartAgentSheet: View {
         }
         .padding(24)
         .frame(width: 520)
+        .onChange(of: directory.wrappedValue) { _, _ in resumeID = nil }
+        .onChange(of: kind.wrappedValue) { _, _ in resumeID = nil }
         .task {
             let defaults = UserDefaults.standard
             directory.wrappedValue = request.directory
@@ -110,6 +117,48 @@ struct StartAgentSheet: View {
                 kind.wrappedValue = first
             }
         }
+    }
+
+    /// Earlier sessions of this agent in the chosen folder that can be continued, newest first.
+    private var earlierSessions: [AgentRun] {
+        guard kind.wrappedValue != .shell, !directory.wrappedValue.isEmpty else { return [] }
+        return model.agents.runs
+            .filter { $0.purpose == .session && $0.kind == kind.wrappedValue && $0.directory == directory.wrappedValue }
+            .sorted { $0.updated > $1.updated }
+            .filter { $0.isRunning || $0.canResume }
+            .prefix(5).map { $0 }
+    }
+
+    private var sessionSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Session").font(.headline)
+            VStack(spacing: 2) {
+                sessionRow(id: nil, title: String(localized: "New session"), subtitle: nil)
+                ForEach(earlierSessions) { run in
+                    sessionRow(id: run.id, title: run.title,
+                               subtitle: (run.isRunning ? String(localized: "Running · ") : "")
+                                   + run.updated.formatted(.relative(presentation: .named)))
+                }
+            }
+            .padding(4)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
+        }
+    }
+
+    private func sessionRow(id: String?, title: String, subtitle: String?) -> some View {
+        let selected = resumeID == id
+        return HStack(spacing: 10) {
+            Image(systemName: selected ? "largecircle.fill.circle" : "circle")
+                .foregroundStyle(selected ? Color.accentColor : .secondary)
+            Image(systemName: id == nil ? "plus" : "clock.arrow.circlepath").frame(width: 18)
+            Text(title).lineLimit(1)
+            Spacer()
+            if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) }
+        }
+        .padding(.horizontal, 8).padding(.vertical, 6)
+        .background(selected ? Color.accentColor.opacity(0.1) : .clear, in: RoundedRectangle(cornerRadius: 5))
+        .contentShape(Rectangle())
+        .onTapGesture { resumeID = id }
     }
 
     private func agentRow(_ k: AgentKind) -> some View {
@@ -258,7 +307,11 @@ struct StartAgentSheet: View {
         let defaults = UserDefaults.standard
         defaults.set(directory.wrappedValue, forKey: Self.lastDirectoryKey)
         defaults.set(kind.wrappedValue.rawValue, forKey: Self.lastKindKey)
-        model.startAgent(kind.wrappedValue, directory: directory.wrappedValue, purpose: purpose)
+        if purpose == .session, let id = resumeID, let run = model.agents.run(id) {
+            model.openSession(run)
+        } else {
+            model.startAgent(kind.wrappedValue, directory: directory.wrappedValue, purpose: purpose)
+        }
         dismiss()
     }
 }

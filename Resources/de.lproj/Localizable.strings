@@ -815,3 +815,10 @@
 "Upload %lld commit(s)" = "%lld Commit(s) hochladen";
 "https://github.com/owner/repo.git or git@host:owner/repo.git" = "https://github.com/owner/repo.git oder git@host:owner/repo.git";
 "“%@” already exists in this folder." = "„%@“ existiert in diesem Ordner schon.";
+
+"Session" = "Sitzung";
+"New session" = "Neue Sitzung";
+"Running · " = "Läuft · ";
+"Continue" = "Fortsetzen";
+"New %@ session in this folder" = "Neue %@-Sitzung in diesem Ordner";
+"Continue the last %@ session in this folder" = "Letzte %@-Sitzung in diesem Ordner fortsetzen";

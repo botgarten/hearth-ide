@@ -120,6 +120,13 @@ final class AppModel {
         if let error = run.error { banner = error }
     }
 
+    /// Continues an earlier session (or just shows it when it is still running).
+    func openSession(_ run: AgentRun) {
+        if !run.isRunning { agents.resume(run) }
+        selectRun(run.id)
+        if let error = run.error { banner = error }
+    }
+
     /// Types a prepared instruction into the selected agent's terminal and submits it.
     func ask(_ prompt: String) {
         guard let run = agents.selectedRun, run.isRunning, let terminal = run.terminal else {

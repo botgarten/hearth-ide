@@ -14,6 +14,8 @@ struct WelcomeView: View {
             .prefix(8).map { $0 }
     }
 
+    private func resumable(_ run: AgentRun) -> Bool { run.isRunning || run.canResume }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 16) {
@@ -56,14 +58,23 @@ struct WelcomeView: View {
                                         .font(.caption).foregroundStyle(.secondary)
                                     }
                                     Spacer()
-                                    Image(systemName: "play.circle.fill").font(.title2).foregroundStyle(Color.accentColor)
+                                    Button {
+                                        model.showWelcome = false
+                                        model.startAgent(run.kind, directory: run.directory)
+                                    } label: { Image(systemName: "plus.circle").font(.title2) }
+                                        .buttonStyle(.borderless)
+                                        .help("New \(run.kind.displayName) session in this folder")
+                                    Image(systemName: resumable(run) ? "arrow.clockwise.circle.fill" : "play.circle.fill")
+                                        .font(.title2).foregroundStyle(Color.accentColor)
                                 }
                                 .padding(.vertical, 4)
                                 .interactiveRow {
                                     model.showWelcome = false
-                                    model.startAgent(run.kind, directory: run.directory)
+                                    if resumable(run) { model.openSession(run) }
+                                    else { model.startAgent(run.kind, directory: run.directory) }
                                 }
-                                .help("Start \(run.kind.displayName) in this folder")
+                                .help(resumable(run) ? "Continue the last \(run.kind.displayName) session in this folder"
+                                                     : "Start \(run.kind.displayName) in this folder")
                             }
                         }
                     }
