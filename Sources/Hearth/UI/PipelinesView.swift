@@ -7,7 +7,6 @@ struct PipelinesView: View {
     @Environment(\.textScale) private var scale
     let root: String
 
-    private let tokenInput = State(initialValue: "")
     private let log = State(initialValue: JobLog?.none)
     private let showList = State(initialValue: Set<Int>())     // pipelines shown as list instead of graph
     private let bigGraph = State(initialValue: CIPipeline?.none)
@@ -107,71 +106,12 @@ struct PipelinesView: View {
     // MARK: Token setup
 
     private var tokenSetup: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Set up \(provider.name) access", systemImage: "key.fill").scaledFont(.headline)
-            Text("Tokens are only sent to the HTTPS origin you approve below and are stored in the keychain per server and access level. Please check the server address first.")
-                .scaledFont(.callout).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            if let r = store.remote {
-                Text(r.origin.value).font(.system(.body, design: .monospaced)).textSelection(.enabled)
-                if r.provider == .gitHub {
-                    Text("API: \(r.apiBase.host ?? r.host)").scaledFont(.caption, mono: true).foregroundStyle(.secondary)
-                }
-                Toggle(r.provider == .gitLab ? "Set up separate write access (api)" : "Set up separate write access (Actions: Read and write)",
-                       isOn: writingToken.projectedValue)
-                Text(writingToken.wrappedValue
-                     ? "Only for write actions you trigger yourself; a read token is needed as well."
-                     : r.provider == .gitLab ? "For automatic loading the read_api scope is enough."
-                     : "Fine-grained token, only this repository, permission “Actions: Read-only” (plus “Metadata: Read-only”, added automatically).")
-                    .scaledFont(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Link(destination: r.tokenPage(writing: writingToken.wrappedValue)) {
-                    Label("Create a token in \(r.provider.name)", systemImage: "arrow.up.forward.square")
-                }
-            }
-            HStack {
-                SecureField("Paste token", text: tokenInput.projectedValue)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit(saveToken)
-                Button("Approve server & save", action: saveToken)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(tokenInput.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-            if api != nil {
-                Button("Back to pipelines") { configureToken.wrappedValue = false }
-                if let r = store.remote {
-                    Button("Revoke server approval", role: .destructive) {
-                        model.ci.revoke(r.origin)
-                        store.clearResults()
-                        tokenInput.wrappedValue = ""
-                    }
-                }
-            }
-            if let e = store.error { Text(e).foregroundStyle(.orange) }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    }
-
-    private func saveToken() {
-        let t = tokenInput.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !t.isEmpty, let r = store.remote else { return }
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Approve this \(r.provider.name) server?")
-        let access = r.provider == .gitLab ? (writingToken.wrappedValue ? String(localized: "Write (api)") : String(localized: "Read (read_api)"))
-                                           : (writingToken.wrappedValue ? String(localized: "Write (Actions)") : String(localized: "Read (Actions)"))
-        let apiNote = r.provider == .gitHub ? " (API: \(r.apiBase.host ?? r.host))" : ""
-        alert.informativeText = String(localized: "\(r.origin.value)\(apiNote)\n\nOnly this HTTPS origin receives the token. Access: \(access). Nothing is approved for other hosts or ports.")
-        alert.addButton(withTitle: String(localized: "Approve"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        if model.ci.save(t, for: r.origin, writing: writingToken.wrappedValue) {
-            tokenInput.wrappedValue = ""
-            configureToken.wrappedValue = false
-            model.toast(String(localized: "\(r.provider.name) token saved"))
-        } else {
-            store.error = String(localized: "The token could not be saved in the keychain.")
-        }
+        CITokenSetupView(remote: store.remote, purpose: .pipelines, writing: writingToken.wrappedValue,
+                         backTitle: api != nil ? String(localized: "Back to pipelines") : nil,
+                         onBack: { configureToken.wrappedValue = false },
+                         onSaved: { configureToken.wrappedValue = false },
+                         onRevoke: { store.clearResults() })
+            .id(writingToken.wrappedValue)
     }
 
     // MARK: Pipelines

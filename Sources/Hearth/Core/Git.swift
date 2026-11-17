@@ -396,6 +396,31 @@ enum Git {
         await run(["show", "--stat", "--patch", "--format=fuller", "--end-of-options", commit, "--"], in: dir) ?? ""
     }
 
+    struct Commit: Identifiable, Hashable, Sendable {
+        let hash: String
+        let subject: String
+        let author: String
+        let date: String
+        var id: String { hash }
+    }
+
+    /// The latest commits of a ref (newest first).
+    static func log(_ ref: String = "HEAD", limit: Int = 100, in dir: String) async -> [Commit] {
+        guard ref == "HEAD" || SandboxGitOperation.validRef(ref) else { return [] }
+        guard let out = await run(["log", "--format=%h%x09%an%x09%cr%x09%s", "-n", "\(limit)", "--end-of-options", ref, "--"],
+                                  in: dir) else { return [] }
+        return out.split(separator: "\n").compactMap { line in
+            let f = line.split(separator: "\t", maxSplits: 3, omittingEmptySubsequences: false).map(String.init)
+            guard f.count == 4 else { return nil }
+            return Commit(hash: f[0], subject: f[3], author: f[1], date: f[2])
+        }
+    }
+
+    /// What a stash changes compared to the commit it was made on.
+    static func stashDiff(_ index: Int, in dir: String) async -> String {
+        await run(["diff", "stash@{\(index)}^1", "stash@{\(index)}", "--"], in: dir) ?? ""
+    }
+
     /// Suggested folder name for a clone URL ("git@host:group/my-repo.git" → "my-repo").
     static func repoName(from url: String) -> String {
         var s = url.trimmingCharacters(in: .whitespacesAndNewlines)

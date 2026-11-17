@@ -150,6 +150,12 @@ final class CIAccounts {
         return remote.client(CICredential(origin: remote.origin, token: token, allowsWrites: writing))
     }
 
+    /// Merge/pull request client, bound to the read or the separate write token like `api(for:)`.
+    func changeRequestAPI(for remote: CIRemote, writing: Bool = false) -> (any ChangeRequestClient)? {
+        guard let token = (writing ? writeTokens : readTokens)[remote.origin] else { return nil }
+        return remote.changeRequestClient(CICredential(origin: remote.origin, token: token, allowsWrites: writing))
+    }
+
     func revoke(_ origin: CIOrigin) {
         credentialRevision[origin, default: 0] += 1
         readTokens[origin] = nil

@@ -19,6 +19,7 @@ final class AppModel {
     let ci: CIAccounts
     /// CI/CD pane of the workspace folder (all inspector panes show the same folder).
     let pipelines: PipelinesStore
+    let changeRequests: ChangeRequestsStore
     /// Search Everywhere (double Shift).
     let search = SearchEverywhereStore()
 
@@ -48,6 +49,9 @@ final class AppModel {
         pipelines = PipelinesStore(.init(detectRemote: { await CIRemote.of(repo: $0) },
                                          loadCredentials: { await ci.load(for: $0) },
                                          client: { ci.api(for: $0) }))
+        changeRequests = ChangeRequestsStore(.init(detectRemote: { await CIRemote.of(repo: $0) },
+                                                   loadCredentials: { await ci.load(for: $0) },
+                                                   client: { ci.changeRequestAPI(for: $0, writing: $1) }))
         editor.workspaceRoot = { [weak self] in self?.workspaceRoot }
         editor.notify = { [weak self] in self?.toast($0) }
         layout.notify = { [weak self] in self?.toast($0) }

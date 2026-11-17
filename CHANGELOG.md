@@ -1,5 +1,10 @@
 # Hearth IDE – Änderungen
 
+## Unveröffentlicht
+
+- **Git-Bereich neu gestaltet:** Abschnitte als Tabs (Änderungen, Merge/Pull Requests, Branches, Verlauf, Stashes), oben Branch-Menü, Ahead/Behind und Fetch/Pull/Push. Im Vollbild oder eigenen Fenster stehen Liste und Details nebeneinander: Diff der gewählten Datei mit Zeilennummern, Commit- und Stash-Diffs, Branch mit seinen letzten Commits. Schmal öffnen sich Details an Ort und Stelle mit Zurück-Knopf.
+- **Merge Requests / Pull Requests reviewen:** Liste (offen, gemergt, geschlossen) mit Hinweis auf den MR/PR des aktuellen Branches. Detailansicht mit Beschreibung, Status (mergebar, Konflikte, Pipeline, Freigaben), Konversation und allen geänderten Dateien. **Zeilen kommentieren** per „+“ am Zeilenrand, auf Threads antworten, **Review** abschicken (Kommentar, Freigeben, bei GitHub auch Änderungen anfordern) und **mergen** (Merge-Commit, Squash, bei GitHub Rebase; Quell-Branch optional löschen). Gemergt wird nur der geprüfte Stand – ist der Branch inzwischen weiter, lehnt der Server ab. Lesen nutzt den Lese-Token, alle Schreibaktionen den separat freigegebenen Schreib-Token; GitHub braucht dafür „Pull requests“-Rechte.
+
 ## 0.9.0 · 2026-11-08
 
 - **Sitzung wählen:** Im Dialog „Agent starten“ erscheint unter „Sitzung“ eine Auswahl zwischen „Neue Sitzung“ und den letzten fortsetzbaren Sitzungen dieses Agenten im Ordner. Im Willkommensbildschirm setzt ein Klick auf einen Ordner die letzte Sitzung fort (sofern möglich), der Plus-Knopf startet eine neue.

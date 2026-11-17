@@ -29,7 +29,7 @@ struct GitHubAPI: CIClient {
         }
     }
 
-    private var repo: String { remote.path }
+    var repo: String { remote.path }
 
     func authorizedRequest(_ method: String, _ path: String, query: [URLQueryItem] = [], body: [String: Any]? = nil) throws -> URLRequest {
         guard remote.provider == .gitHub, remote.path.split(separator: "/").count == 2 else { throw APIError.notGitHub }
@@ -54,7 +54,7 @@ struct GitHubAPI: CIClient {
         return req
     }
 
-    private func request(_ method: String, _ path: String, query: [URLQueryItem] = [], body: [String: Any]? = nil) async throws -> Data {
+    func request(_ method: String, _ path: String, query: [URLQueryItem] = [], body: [String: Any]? = nil) async throws -> Data {
         let (data, resp) = try await send(try authorizedRequest(method, path, query: query, body: body))
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else { throw APIError.http(code, String(decoding: data, as: UTF8.self)) }

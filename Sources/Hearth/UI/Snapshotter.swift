@@ -55,6 +55,32 @@ enum Snapshotter {
                 views.append(("markdown", AnyView(ScrollView { MarkdownBlocks(text: md).environment(\.markdownMono, true).padding(16) }), CGSize(width: 760, height: 900)))
             }
             let env = ProcessInfo.processInfo.environment
+            // HEARTH_SNAPSHOT_GIT_ROOT=<repo>: the Git pane narrow and wide, and a sample merge request.
+            if let root = env["HEARTH_SNAPSHOT_GIT_ROOT"] {
+                let snapshot = await Git.snapshot(of: root)
+                for section in GitView.Section.allCases where section != .requests {
+                    UserDefaults.standard.set(section.rawValue, forKey: "git.section")
+                    for (name, size) in [("wide", CGSize(width: 1300, height: 760)), ("narrow", CGSize(width: 420, height: 760))] {
+                        render(GitView(root: root, snapshot: snapshot).environment(model), size: size, dark: true,
+                               to: dir.appendingPathComponent("git-\(section.rawValue)-\(name).png"))
+                    }
+                }
+                GitSnapshotSample.load(into: model.changeRequests)
+                UserDefaults.standard.set(GitView.Section.requests.rawValue, forKey: "git.section")
+                for dark in [false, true] {
+                    render(GitView(root: root, snapshot: snapshot).environment(model), size: CGSize(width: 1300, height: 760), dark: dark,
+                           to: dir.appendingPathComponent("git-requests-wide-\(dark ? "dark" : "light").png"))
+                }
+                render(GitView(root: root, snapshot: snapshot).environment(model), size: CGSize(width: 420, height: 760), dark: true,
+                       to: dir.appendingPathComponent("git-requests-narrow.png"))
+                for dark in [false, true] {
+                    render(ChangeRequestDetailView(root: root, onCheckout: { _ in }, tab: .files).environment(model),
+                           size: CGSize(width: 1100, height: 700), dark: dark,
+                           to: dir.appendingPathComponent("git-request-files-\(dark ? "dark" : "light").png"))
+                }
+                UserDefaults.standard.set(GitView.Section.changes.rawValue, forKey: "git.section")
+                exit(0)
+            }
             // HEARTH_SNAPSHOT_HIGHLIGHT=<term>[:<line>]: the active editor file with the term marked.
             if let raw = env["HEARTH_SNAPSHOT_HIGHLIGHT"],
                let file = env["HEARTH_SNAPSHOT_PREVIEW"]?.split(separator: ",").last.map({ URL(fileURLWithPath: String($0)) }) {
@@ -224,5 +250,35 @@ enum Snapshotter {
         guard let image = ctx.makeImage(),
               let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { return }
         try? png.write(to: url, options: .atomic)
+    }
+}
+
+/// Sample merge request for snapshots of the Git pane.
+@MainActor
+enum GitSnapshotSample {
+    static func load(into store: ChangeRequestsStore) {
+        let remote = CIRemote.parse("git@gitlab.example.test:hearth/app.git")!
+        let now = Date()
+        let summary = CRSummary(number: 42, title: "Git pane: review and merge requests", author: "mira", source: "feature/review",
+                                target: "main", state: .open, draft: false, updatedAt: now.addingTimeInterval(-3600),
+                                webURL: URL(string: "https://gitlab.example.test/hearth/app/-/merge_requests/42"))
+        let other = CRSummary(number: 41, title: "Faster diff rendering", author: "jo", source: "perf/diff", target: "main",
+                              state: .open, draft: true, updatedAt: now.addingTimeInterval(-86400), webURL: nil)
+        let diff = "@@ -10,7 +10,9 @@ struct GitView: View {\n     let root: String\n     let snapshot: GitSnapshot\n-    @State private var busy = false\n+    @State private var busy: String?\n+    @State private var selected: Int?\n \n     var body: some View {\n-        list\n+        layout(wide: true)\n     }\n"
+        let files = [CRFile(path: "Sources/Hearth/UI/GitView.swift", oldPath: "Sources/Hearth/UI/GitView.swift", status: .modified,
+                            diff: diff, added: 3, removed: 2),
+                     CRFile(path: "Sources/Hearth/UI/DiffView.swift", oldPath: "Sources/Hearth/UI/DiffView.swift", status: .added,
+                            diff: "@@ -0,0 +1,3 @@\n+import SwiftUI\n+\n+struct DiffView: View {}\n", added: 3, removed: 0)]
+        let detail = CRDetail(summary: summary, body: "Adds a **review screen** for merge requests:\n\n- comments on lines\n- approve and merge\n",
+                              mergeability: .blocked(String(localized: "Approvals missing")), refs: CRDiffRefs(base: "a", start: "a", head: "0123456789"),
+                              approvedBy: ["jo"], pipelineStatus: "success")
+        let anchor = CRLineAnchor(path: files[0].path, oldPath: files[0].path, newLine: 13)
+        let comments = [
+            CRComment(id: "1", author: "jo", body: "Looks good, one question below.", createdAt: now.addingTimeInterval(-1800)),
+            CRComment(id: "2", author: "jo", body: "Why optional here?", createdAt: now.addingTimeInterval(-1700), anchor: anchor, thread: "abcdef0123"),
+            CRComment(id: "3", author: "mira", body: "Holds the label of the running action.", createdAt: now.addingTimeInterval(-1600), anchor: anchor, thread: "abcdef0123"),
+            CRComment(id: "4", author: "jo", body: "approved this merge request", createdAt: now.addingTimeInterval(-1500), kind: .approved),
+        ]
+        store.showSample(remote: remote, list: [summary, other], detail: detail, files: files, comments: comments)
     }
 }

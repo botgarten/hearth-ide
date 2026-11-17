@@ -256,7 +256,7 @@ struct GitLabAPI: CIClient {
 
     static func date(_ s: String) -> Date? { ISO8601.date(s) }
 
-    private var project: String {
+    var project: String {
         remote.path.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? remote.path
     }
 
@@ -278,7 +278,7 @@ struct GitLabAPI: CIClient {
         return req
     }
 
-    private func request(_ method: String, _ path: String, query: [URLQueryItem] = [], body: [String: Any]? = nil) async throws -> Data {
+    func request(_ method: String, _ path: String, query: [URLQueryItem] = [], body: [String: Any]? = nil) async throws -> Data {
         let req = try authorizedRequest(method, path, query: query, body: body)
         let (data, resp) = try await session.data(for: req)
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
