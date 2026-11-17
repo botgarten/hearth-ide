@@ -1,6 +1,6 @@
 # Hearth IDE – Änderungen
 
-## Unveröffentlicht
+## 0.10.0 · 2026-11-17
 
 - **Git-Bereich neu gestaltet:** Abschnitte als Tabs (Änderungen, Merge/Pull Requests, Branches, Verlauf, Stashes), oben Branch-Menü, Ahead/Behind und Fetch/Pull/Push. Im Vollbild oder eigenen Fenster stehen Liste und Details nebeneinander: Diff der gewählten Datei mit Zeilennummern, Commit- und Stash-Diffs, Branch mit seinen letzten Commits. Schmal öffnen sich Details an Ort und Stelle mit Zurück-Knopf.
 - **Merge Requests / Pull Requests reviewen:** Liste (offen, gemergt, geschlossen) mit Hinweis auf den MR/PR des aktuellen Branches. Detailansicht mit Beschreibung, Status (mergebar, Konflikte, Pipeline, Freigaben), Konversation und allen geänderten Dateien. **Zeilen kommentieren** per „+“ am Zeilenrand, auf Threads antworten, **Review** abschicken (Kommentar, Freigeben, bei GitHub auch Änderungen anfordern) und **mergen** (Merge-Commit, Squash, bei GitHub Rebase; Quell-Branch optional löschen). Gemergt wird nur der geprüfte Stand – ist der Branch inzwischen weiter, lehnt der Server ab. Lesen nutzt den Lese-Token, alle Schreibaktionen den separat freigegebenen Schreib-Token; GitHub braucht dafür „Pull requests“-Rechte.
