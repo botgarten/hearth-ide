@@ -80,10 +80,24 @@ struct ChangeRequestTests {
     }
 
     @Test func historyIsReadFromTheRepository() async throws {
-        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().path
-        let log = await Git.log(limit: 3, in: repo)
-        #expect(log.count == 3 && log.allSatisfy { !$0.hash.isEmpty && !$0.subject.isEmpty })
-        #expect(await Git.log("--all", in: repo).isEmpty, "Options passed as ref")
+        let dir = try temporaryFolder("hearth-log")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        func git(_ args: [String]) throws {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            p.arguments = ["-c", "user.email=t@example.test", "-c", "user.name=Tess"] + args
+            p.currentDirectoryURL = dir
+            p.standardOutput = FileHandle.nullDevice
+            p.standardError = FileHandle.nullDevice
+            try p.run(); p.waitUntilExit()
+            try require(p.terminationStatus == 0, "git \(args.joined(separator: " ")) failed")
+        }
+        try git(["init", "-q", "-b", "main"])
+        for subject in ["first", "second\twith tab", "third"] { try git(["commit", "-q", "--allow-empty", "-m", subject]) }
+        let log = await Git.log(limit: 2, in: dir.path)
+        #expect(log.map(\.subject) == ["third", "second\twith tab"])
+        #expect(log.allSatisfy { !$0.hash.isEmpty && $0.author == "Tess" })
+        #expect(await Git.log("--all", in: dir.path).isEmpty, "Options passed as ref")
     }
 
     // MARK: GitHub
