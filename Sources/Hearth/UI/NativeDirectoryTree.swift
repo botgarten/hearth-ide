@@ -17,6 +17,10 @@ struct NativeDirectoryTree: NSViewRepresentable {
     let expand: (URL, Bool) -> Void
     let move: (URL, URL) -> Bool
     let menu: (FileNode?) -> NSMenu
+    /// ⌘C/⌘X act on the selected row; ⌘V receives the selected row (or nil for the root).
+    var clipboard: ((FileNode?, ClipboardAction) -> Void)? = nil
+
+    enum ClipboardAction { case copy, cut, paste }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -41,6 +45,7 @@ struct NativeDirectoryTree: NSViewRepresentable {
         coordinator.outline?.dataSource = nil
         coordinator.outline?.delegate = nil
         coordinator.outline?.contextMenu = nil
+        coordinator.outline?.clipboard = nil
     }
 
     final class Node: NSObject {
@@ -56,11 +61,25 @@ struct NativeDirectoryTree: NSViewRepresentable {
         }
     }
 
-    final class DirectoryOutline: NSOutlineView {
+    final class DirectoryOutline: NSOutlineView, NSMenuItemValidation {
         var contextMenu: ((FileNode?) -> NSMenu)?
         override func menu(for event: NSEvent) -> NSMenu? {
             let row = row(at: convert(event.locationInWindow, from: nil))
             return contextMenu?((item(atRow: row) as? Node)?.file)
+        }
+
+        /// Reached through the responder chain from the standard Edit menu (⌘C/⌘X/⌘V).
+        var clipboard: ((FileNode?, ClipboardAction) -> Void)?
+        private var selectedFile: FileNode? { selectedRow >= 0 ? (item(atRow: selectedRow) as? Node)?.file : nil }
+        @objc func copy(_ sender: Any?) { if let file = selectedFile { clipboard?(file, .copy) } }
+        @objc func cut(_ sender: Any?) { if let file = selectedFile { clipboard?(file, .cut) } }
+        @objc func paste(_ sender: Any?) { clipboard?(selectedFile, .paste) }
+        func validateMenuItem(_ item: NSMenuItem) -> Bool {
+            switch item.action {
+            case #selector(copy(_:)), #selector(cut(_:)): clipboard != nil && selectedFile != nil
+            case #selector(paste(_:)): clipboard != nil && WorkspaceClipboard.hasFiles(.general)
+            default: responds(to: item.action)
+            }
         }
     }
 
@@ -103,6 +122,7 @@ struct NativeDirectoryTree: NSViewRepresentable {
             view.setDraggingSourceOperationMask(.move, forLocal: true)
             view.setDraggingSourceOperationMask([], forLocal: false)
             view.contextMenu = { [weak self] file in self?.parent.menu(file) ?? NSMenu() }
+            view.clipboard = { [weak self] file, action in self?.parent.clipboard?(file, action) }
             synchronize()
         }
 

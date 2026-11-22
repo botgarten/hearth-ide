@@ -1,5 +1,9 @@
 # Hearth IDE – Änderungen
 
+## Unveröffentlicht
+
+- **Kopieren, Ausschneiden und Einfügen im Verzeichnis:** ⌘C, ⌘X und ⌘V (auch im Kontextmenü) kopieren bzw. verschieben Dateien und Ordner. Eingefügt wird in den gewählten Ordner, bei einer gewählten Datei in deren Ordner. Das klappt auch mit dem Finder in beide Richtungen: im Finder kopierte Dateien lassen sich ins Projekt einfügen. Bei gleichem Namen entsteht wie im Finder „Datei copy.txt“. Es gelten dieselben Grenzen wie beim Verschieben: nur innerhalb des Projekts, nicht in `.git`, ungespeicherte Dateien zuerst sichern.
+
 ## 0.11.0 · 2026-11-22
 
 - **Commit-Nachricht generieren:** Neben „Commit“ schreibt der Knopf „Generieren“ eine Commit-Nachricht für die vorgemerkten Änderungen (oder für alle, wenn nichts vorgemerkt ist). Die Nachricht passt sich Sprache und Stil der letzten Commits an. Über das Menü am Knopf wählst du den Agenten (Claude Code, Codex oder Gemini CLI). Der Agent läuft einmalig in seiner Sandbox mit seinem dortigen Login und ohne Werkzeuge: Hearth gibt ihm Dateiliste und Diff (gekürzt ab 20 000 Zeichen, Lockfiles und minifizierte Dateien nur in der Dateiliste), er antwortet nur mit der Nachricht. Die Nachricht landet im Eingabefeld und lässt sich vor dem Commit noch bearbeiten.

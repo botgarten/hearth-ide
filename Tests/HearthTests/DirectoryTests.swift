@@ -105,4 +105,43 @@ struct DirectoryTests {
         try require(WorkspaceFileDrag.decode(providerData, root: base.path, token: token)?.source == file, "SwiftUI root-drop data bridge failed")
     }
 
+
+    @Test func clipboardCopyNamesAndCutMarker() throws {
+        let fm = FileManager.default
+        let base = URL(fileURLWithPath: NSTemporaryDirectory()).resolvingSymlinksInPath()
+            .appendingPathComponent("directory-clipboard-\(UUID().uuidString)")
+        try fm.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: base) }
+        let file = base.appendingPathComponent("notes.txt")
+        try Data("x".utf8).write(to: file)
+        let folder = base.appendingPathComponent("folder.d")
+        try fm.createDirectory(at: folder, withIntermediateDirectories: false)
+
+        // Pasting into the same folder yields Finder-style copy names.
+        let first = try WorkspaceFiles.copyDestination(source: file, directory: base, root: base)
+        try require(first.lastPathComponent == "notes copy.txt", "Unexpected copy name \(first.lastPathComponent)")
+        try fm.copyItem(at: file, to: first)
+        let second = try WorkspaceFiles.copyDestination(source: file, directory: base, root: base)
+        try require(second.lastPathComponent == "notes copy 2.txt", "Unexpected second copy name \(second.lastPathComponent)")
+        try require(try WorkspaceFiles.copyDestination(source: folder, directory: base, root: base).lastPathComponent == "folder.d copy",
+                    "Folder names must not be split at the dot")
+        try require((try? WorkspaceFiles.copyDestination(source: folder, directory: folder, root: base)) == nil, "Folder copied into itself")
+        try require((try? WorkspaceFiles.copyDestination(source: file, directory: base.deletingLastPathComponent(), root: base)) == nil,
+                    "Paste outside the workspace accepted")
+
+        // Plain file URLs (as Finder writes them) are readable; the cut marker only counts for this instance.
+        let board = NSPasteboard(name: NSPasteboard.Name("hearth-test-\(UUID().uuidString)"))
+        defer { board.releaseGlobally() }
+        let token = UUID()
+        WorkspaceClipboard.write(file, cut: false, token: token, to: board)
+        try require(WorkspaceClipboard.hasFiles(board) && WorkspaceClipboard.files(board).map(\.path) == [file.path], "File URL not on pasteboard")
+        try require(board.string(forType: .string) == file.path, "Path text missing for text targets")
+        try require(!WorkspaceClipboard.isCut(board, token: token), "Copy marked as cut")
+        WorkspaceClipboard.write(file, cut: true, token: token, to: board)
+        try require(WorkspaceClipboard.isCut(board, token: token), "Cut marker missing")
+        try require(!WorkspaceClipboard.isCut(board, token: UUID()), "Foreign cut marker accepted")
+        board.clearContents()
+        board.writeObjects([file as NSURL])
+        try require(WorkspaceClipboard.files(board).map(\.path) == [file.path], "Finder-style file URL not read")
+    }
 }

@@ -968,3 +968,8 @@
 "Effort" = "Aufwand";
 "Default" = "Standard";
 "Smaller models and lower effort use far fewer tokens; enough for most routine work." = "Kleinere Modelle und weniger Aufwand verbrauchen deutlich weniger Tokens und reichen für die meiste Routinearbeit.";
+"Cut" = "Ausschneiden";
+"Paste" = "Einfügen";
+"The clipboard contains no files." = "Die Zwischenablage enthält keine Dateien.";
+"The copied file no longer exists." = "Die kopierte Datei existiert nicht mehr.";
+"A folder cannot be copied into itself." = "Ein Ordner kann nicht in sich selbst kopiert werden.";

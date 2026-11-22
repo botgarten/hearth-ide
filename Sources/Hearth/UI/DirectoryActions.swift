@@ -41,6 +41,30 @@ enum WorkspaceFiles {
         return target
     }
 
+    /// Picks a free name like Finder does: "a.txt", "a copy.txt", "a copy 2.txt".
+    static func copyDestination(source: URL, directory: URL, root: URL) throws -> URL {
+        var isDirectory: ObjCBool = false
+        guard source.isFileURL, FileManager.default.fileExists(atPath: source.path, isDirectory: &isDirectory) else {
+            throw Failure(String(localized: "The copied file no longer exists."))
+        }
+        let parent = directory.resolvingSymlinksInPath().path
+        let sourcePath = source.resolvingSymlinksInPath().path
+        guard parent != sourcePath, !parent.hasPrefix(sourcePath + "/") else {
+            throw Failure(String(localized: "A folder cannot be copied into itself."))
+        }
+        let ext = isDirectory.boolValue ? "" : source.pathExtension
+        let stem = ext.isEmpty ? source.lastPathComponent : source.deletingPathExtension().lastPathComponent
+        for attempt in 0..<1000 {
+            let suffix = attempt == 0 ? "" : attempt == 1 ? " copy" : " copy \(attempt)"
+            let name = stem + suffix + (ext.isEmpty ? "" : "." + ext)
+            let candidate = directory.appendingPathComponent(name)
+            if FileManager.default.fileExists(atPath: candidate.path) ||
+                (try? FileManager.default.destinationOfSymbolicLink(atPath: candidate.path)) != nil { continue }
+            return try destination(name: name, in: directory, root: root)
+        }
+        throw Failure(String(localized: "A file or folder with this name already exists."))
+    }
+
     struct Failure: LocalizedError {
         let message: String
         init(_ message: String) { self.message = message }
@@ -104,7 +128,7 @@ extension AppModel {
         }
     }
 
-    private func performWorkspaceMove(_ source: URL, to target: URL, root: String) throws {
+    fileprivate func performWorkspaceMove(_ source: URL, to target: URL, root: String) throws {
         let canonicalSource = source.resolvingSymlinksInPath().path
         let parent = target.deletingLastPathComponent().resolvingSymlinksInPath().path
         guard parent != canonicalSource, !parent.hasPrefix(canonicalSource + "/") else {
@@ -123,7 +147,7 @@ extension AppModel {
     }
 
     @discardableResult
-    private func workspaceAction(_ action: () throws -> Void) -> Bool {
+    fileprivate func workspaceAction(_ action: () throws -> Void) -> Bool {
         do {
             try action()
             workspace.revision += 1
@@ -158,7 +182,7 @@ extension AppModel {
     }
 
     /// Blocks changes that would orphan an unsaved buffer, including nested files.
-    private func validateWorkspaceChange(_ url: URL, root: String) throws {
+    fileprivate func validateWorkspaceChange(_ url: URL, root: String) throws {
         let base = URL(fileURLWithPath: root).standardizedFileURL
         guard url.resolvingSymlinksInPath().standardizedFileURL.path != base.resolvingSymlinksInPath().path,
               WorkspaceFiles.contains(url, root: base),
@@ -236,6 +260,33 @@ extension AppModel {
             group.back.removeAll { $0.url == source || $0.url.path.hasPrefix(source.path + "/") }
             group.forward.removeAll { $0.url == source || $0.url.path.hasPrefix(source.path + "/") }
         }
+    }
+}
+
+/// File copy/cut/paste in the directory pane. Uses plain file URLs so Finder ⌘C/⌘V works both ways;
+/// a private marker (with this instance's token) turns the next paste into a move.
+enum WorkspaceClipboard {
+    static let cutType = NSPasteboard.PasteboardType("io.github.pvanissem.hearth.workspace-cut")
+
+    static func hasFiles(_ board: NSPasteboard) -> Bool {
+        board.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
+    }
+
+    static func files(_ board: NSPasteboard) -> [URL] {
+        (board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
+    }
+
+    static func write(_ url: URL, cut: Bool, token: UUID, to board: NSPasteboard) {
+        let item = NSPasteboardItem()
+        item.setString(url.absoluteString, forType: .fileURL)
+        item.setString(url.path, forType: .string)
+        if cut { item.setString(token.uuidString, forType: cutType) }
+        board.clearContents()
+        board.writeObjects([item])
+    }
+
+    static func isCut(_ board: NSPasteboard, token: UUID) -> Bool {
+        board.pasteboardItems?.contains { $0.string(forType: cutType) == token.uuidString } == true
     }
 }
 
@@ -318,6 +369,56 @@ private final class DirectoryMenuAction: NSObject {
 }
 
 extension AppModel {
+    func directoryClipboard(_ action: NativeDirectoryTree.ClipboardAction, file: FileNode?, root: String) {
+        switch action {
+        case .copy, .cut:
+            guard let file else { return }
+            if action == .cut {
+                do { try validateWorkspaceChange(file.url, root: root) }
+                catch { banner = error.localizedDescription; return }
+            }
+            WorkspaceClipboard.write(file.url, cut: action == .cut, token: workspace.dragToken, to: .general)
+        case .paste:
+            let directory = file.map { $0.isDirectory ? $0.url : $0.url.deletingLastPathComponent() } ?? URL(fileURLWithPath: root)
+            pasteWorkspaceItems(into: directory, root: root)
+        }
+    }
+
+    func pasteWorkspaceItems(into directory: URL, root: String, from board: NSPasteboard = .general) {
+        let sources = WorkspaceClipboard.files(board)
+        guard !sources.isEmpty else { banner = String(localized: "The clipboard contains no files."); return }
+        let cut = WorkspaceClipboard.isCut(board, token: workspace.dragToken)
+        let rootURL = URL(fileURLWithPath: root)
+        var last: URL?
+        let done = workspaceAction {
+            for source in sources {
+                if cut {
+                    // Cutting and pasting into the same folder leaves the item where it is.
+                    if source.deletingLastPathComponent().resolvingSymlinksInPath().path == directory.resolvingSymlinksInPath().path {
+                        last = source
+                        continue
+                    }
+                    try validateWorkspaceChange(source, root: root)
+                    let target = try WorkspaceFiles.moveDestination(source: source, directory: directory, root: rootURL)
+                    try performWorkspaceMove(source, to: target, root: root)
+                    last = target
+                } else {
+                    let target = try WorkspaceFiles.copyDestination(source: source, directory: directory, root: rootURL)
+                    try FileManager.default.copyItem(at: source, to: target)
+                    last = target
+                }
+            }
+        }
+        if done, cut { board.clearContents() }
+        if let last {
+            if directory.standardizedFileURL.path != rootURL.standardizedFileURL.path {
+                workspace.expandedPaths.insert(directory.path)
+            }
+            workspace.selectedFile = last
+            workspace.revealID = UUID()
+        }
+    }
+
     func directoryMenu(for file: FileNode?, root: String, markers: [String: String]) -> NSMenu {
         let menu = NSMenu()
         func add(_ title: String, _ action: @escaping () -> Void) {
@@ -333,7 +434,12 @@ extension AppModel {
             add(String(localized: "New folder…")) { self.createWorkspaceItem(in: directory, root: root, folder: true) }
             menu.addItem(.separator())
         }
+        let canPaste = WorkspaceClipboard.hasFiles(.general)
         guard let file else {
+            if canPaste {
+                add(String(localized: "Paste")) { self.pasteWorkspaceItems(into: directory, root: root) }
+                menu.addItem(.separator())
+            }
             add(String(localized: "Refresh")) { self.workspace.refreshNow() }
             return menu
         }
@@ -344,6 +450,10 @@ extension AppModel {
             if markers[relative] != nil { add(String(localized: "Show diff")) { self.editor.open(url, mode: .diff) } }
         }
         add(String(localized: "Find Usages")) { self.editor.findUsages(of: url) }
+        menu.addItem(.separator())
+        add(String(localized: "Cut")) { self.directoryClipboard(.cut, file: file, root: root) }
+        add(String(localized: "Copy")) { self.directoryClipboard(.copy, file: file, root: root) }
+        if canPaste { add(String(localized: "Paste")) { self.directoryClipboard(.paste, file: file, root: root) } }
         menu.addItem(.separator())
         add(String(localized: "Rename…")) { self.changeWorkspaceItem(url, root: root, rename: true) }
         add(String(localized: "Move…")) { self.changeWorkspaceItem(url, root: root, rename: false) }

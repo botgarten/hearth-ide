@@ -396,7 +396,8 @@ struct DirectoryView: View {
                 let moved = model.moveWorkspaceItem(source, into: destination, root: root)
                 if !moved { model.workspace.selectedFile = oldSelection }
                 return moved
-            }, menu: { file in model.directoryMenu(for: file, root: root, markers: markers) })
+            }, menu: { file in model.directoryMenu(for: file, root: root, markers: markers) },
+            clipboard: { file, action in model.directoryClipboard(action, file: file, root: root) })
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
