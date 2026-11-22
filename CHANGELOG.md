@@ -1,6 +1,6 @@
 # Hearth IDE – Änderungen
 
-## Unveröffentlicht
+## 0.12.0 · 2026-11-23
 
 - **Kopieren, Ausschneiden und Einfügen im Verzeichnis:** ⌘C, ⌘X und ⌘V (auch im Kontextmenü) kopieren bzw. verschieben Dateien und Ordner. Eingefügt wird in den gewählten Ordner, bei einer gewählten Datei in deren Ordner. Das klappt auch mit dem Finder in beide Richtungen: im Finder kopierte Dateien lassen sich ins Projekt einfügen. Bei gleichem Namen entsteht wie im Finder „Datei copy.txt“. Es gelten dieselben Grenzen wie beim Verschieben: nur innerhalb des Projekts, nicht in `.git`, ungespeicherte Dateien zuerst sichern.
 
