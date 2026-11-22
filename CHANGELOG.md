@@ -1,5 +1,13 @@
 # Hearth IDE – Änderungen
 
+## Unveröffentlicht
+
+- **Commit-Nachricht generieren:** Neben „Commit“ schreibt der Knopf „Generieren“ eine Commit-Nachricht für die vorgemerkten Änderungen (oder für alle, wenn nichts vorgemerkt ist). Die Nachricht passt sich Sprache und Stil der letzten Commits an. Über das Menü am Knopf wählst du den Agenten (Claude Code, Codex oder Gemini CLI). Der Agent läuft einmalig in seiner Sandbox mit seinem dortigen Login und ohne Werkzeuge: Hearth gibt ihm Dateiliste und Diff (gekürzt ab 20 000 Zeichen, Lockfiles und minifizierte Dateien nur in der Dateiliste), er antwortet nur mit der Nachricht. Die Nachricht landet im Eingabefeld und lässt sich vor dem Commit noch bearbeiten.
+  Damit das wenig kostet, nutzt Claude Code dafür Haiku mit einem kurzen System-Prompt und ohne MCP-Server, Codex läuft mit geringem Reasoning-Aufwand.
+- **Modell und Aufwand wählen:** Im Dialog „Agent starten“ lassen sich für Claude Code Modell (Sonnet, Haiku, Opus, Fable) und Aufwand wählen, für Codex der Reasoning-Aufwand. Die Wahl gilt auch beim Fortsetzen der Sitzung und wird pro Ordner gemerkt. Kleinere Modelle und weniger Aufwand sparen bei Routinearbeit viele Tokens.
+- **Journal mit weniger Aufrufen:** `hearth-journal` nimmt mehrere Einträge in einem Aufruf an, getrennt durch `+`. Der Agent wird angewiesen, den Plan in einem Aufruf einzutragen und Statusänderungen zu bündeln. Jeder Aufruf ist ein eigener Tool-Call, also spart das spürbar Tokens. Ist ein Eintrag fehlerhaft, schreibt der Aufruf gar nichts.
+- **Neustart nach Regeländerungen ohne Abbruch:** „Laufende Sitzungen neu starten“ startet wartende Agenten sofort neu, arbeitende erst nach ihrem aktuellen Durchgang. So geht keine angefangene Arbeit verloren und der Verlauf muss nicht doppelt eingelesen werden.
+
 ## 0.10.0 · 2026-11-17
 
 - **Git-Bereich neu gestaltet:** Abschnitte als Tabs (Änderungen, Merge/Pull Requests, Branches, Verlauf, Stashes), oben Branch-Menü, Ahead/Behind und Fetch/Pull/Push. Im Vollbild oder eigenen Fenster stehen Liste und Details nebeneinander: Diff der gewählten Datei mit Zeilennummern, Commit- und Stash-Diffs, Branch mit seinen letzten Commits. Schmal öffnen sich Details an Ort und Stelle mit Zurück-Knopf.

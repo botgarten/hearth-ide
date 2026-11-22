@@ -508,7 +508,6 @@
 "Stop" = "Stoppen";
 "Stop service" = "Service stoppen";
 "stopped" = "gestoppt";
-"Stops the running agents and starts them with the new rules. Claude Code and Codex resume their conversation." = "Beendet die laufenden Agenten und startet sie mit den neuen Regeln. Claude Code und Codex setzen ihr Gespräch fort.";
 "succeeded" = "erfolgreich";
 "Supported: Maven, Gradle, Node, Go, Makefile and custom tasks in .hearth/tasks.json." = "Unterstützt: Maven, Gradle, Node, Go, Makefile und eigene Aufgaben in .hearth/tasks.json.";
 "Swap" = "Tauschen";
@@ -950,3 +949,22 @@
 "stash@{%lld}" = "stash@{%lld}";
 "wants to merge" = "möchte mergen";
 "⌘↩ to send" = "⌘↩ zum Senden";
+
+/* Commit message generation */
+"Generate" = "Generieren";
+"Write with" = "Schreiben mit";
+"No agent installed (Claude Code, Codex or Gemini CLI)" = "Kein Agent installiert (Claude Code, Codex oder Gemini CLI)";
+"Install Claude Code, Codex or Gemini CLI to generate commit messages" = "Installiere Claude Code, Codex oder Gemini CLI, um Commit-Nachrichten zu generieren";
+"Write a commit message for all changes with %@" = "Commit-Nachricht für alle Änderungen mit %@ schreiben";
+"Write a commit message for the staged changes with %@" = "Commit-Nachricht für die vorgemerkten Änderungen mit %@ schreiben";
+"There are no changes to describe." = "Es gibt keine Änderungen zu beschreiben.";
+"The agent returned no message." = "Der Agent hat keine Nachricht geliefert.";
+"The agent returned no message: %@" = "Der Agent hat keine Nachricht geliefert: %@";
+"The agent did not answer in time." = "Der Agent hat nicht rechtzeitig geantwortet.";
+"%lld waiting for the current turn" = "%lld warten auf das Ende des aktuellen Durchgangs";
+"These sessions restart as soon as the agent finishes its current turn, so no work is interrupted." = "Diese Sitzungen starten neu, sobald der Agent seinen aktuellen Durchgang beendet hat. So wird keine Arbeit unterbrochen.";
+"Restarts the agents with the new rules: idle ones right away, working ones when their turn ends. Claude Code and Codex resume their conversation." = "Startet die Agenten mit den neuen Regeln neu: wartende sofort, arbeitende nach ihrem aktuellen Durchgang. Claude Code und Codex setzen ihr Gespräch fort.";
+"Model" = "Modell";
+"Effort" = "Aufwand";
+"Default" = "Standard";
+"Smaller models and lower effort use far fewer tokens; enough for most routine work." = "Kleinere Modelle und weniger Aufwand verbrauchen deutlich weniger Tokens und reichen für die meiste Routinearbeit.";

@@ -118,8 +118,9 @@ final class AppModel {
     }
 
     /// Starts an agent in the sandbox and shows it.
-    func startAgent(_ kind: AgentKind, directory: String, purpose: AgentRun.Purpose = .session) {
-        let run = agents.start(kind: kind, directory: directory, purpose: purpose)
+    func startAgent(_ kind: AgentKind, directory: String, purpose: AgentRun.Purpose = .session,
+                    options: AgentLaunchOptions = .none) {
+        let run = agents.start(kind: kind, directory: directory, purpose: purpose, options: options)
         selectRun(run.id)
         if let error = run.error { banner = error }
     }

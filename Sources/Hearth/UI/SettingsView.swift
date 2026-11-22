@@ -31,10 +31,15 @@ private struct RestartHint: View {
             Text(text).font(.caption).foregroundStyle(.secondary)
             Spacer()
             let running = model.agents.runningCount
-            if running > 0 {
-                Button("Restart running sessions (\(running))") { model.agents.restartRunning() }
+            let pending = model.agents.restartPendingCount
+            if pending > 0 {
+                Text("\(pending) waiting for the current turn").font(.caption).foregroundStyle(.secondary)
+                    .help("These sessions restart as soon as the agent finishes its current turn, so no work is interrupted.")
+            }
+            if running > pending {
+                Button("Restart running sessions (\(running - pending))") { model.agents.restartRunning() }
                     .controlSize(.small)
-                    .help("Stops the running agents and starts them with the new rules. Claude Code and Codex resume their conversation.")
+                    .help("Restarts the agents with the new rules: idle ones right away, working ones when their turn ends. Claude Code and Codex resume their conversation.")
             }
         }
     }

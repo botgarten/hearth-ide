@@ -106,6 +106,45 @@ struct JournalTests {
         #expect(node.rejected == ["a \"b\"", "c"])
     }
 
+    /// Runs the installed helper with `arguments`; returns its exit status and the journal it wrote.
+    private func runHelper(_ arguments: [String]) throws -> (status: Int32, journal: Journal) {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("journal-bin-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let bin = try JournalSupport.install(runDirectory: dir)
+        let file = JournalSupport.url(runDirectory: dir)
+        let p = Process()
+        p.executableURL = bin.appendingPathComponent("hearth-journal")
+        p.arguments = arguments
+        p.environment = ["HEARTH_JOURNAL": file.path]
+        p.standardError = FileHandle.nullDevice
+        try p.run()
+        p.waitUntilExit()
+        var reader = JournalReader()
+        _ = reader.poll(url: file)
+        return (p.terminationStatus, reader.journal)
+    }
+
+    @Test func helperRecordsSeveralEntriesInOneCall() throws {
+        let result = try runHelper(["step", "s1", "--title", "Plan", "--status", "running",
+                                    "+", "step", "s2", "--parent", "s1", "--title", "Build",
+                                    "+", "decision", "d1", "--parent", "s1", "--title", "Use +", "--rejected", "+"])
+        #expect(result.status == 0)
+        #expect(result.journal.node("s1")?.status == .running)
+        #expect(result.journal.node("s2")?.parent == "s1")
+        #expect(result.journal.node("d1")?.title == "Use +")
+        #expect(result.journal.node("d1")?.rejected == ["+"])
+    }
+
+    @Test func helperWritesNothingWhenOneEntryIsInvalid() throws {
+        let result = try runHelper(["step", "s1", "--title", "Plan", "+", "bogus", "x"])
+        #expect(result.status == 2)
+        #expect(result.journal.isEmpty)
+        let dangling = try runHelper(["step", "s1", "--title"])
+        #expect(dangling.status == 2)
+        #expect(dangling.journal.isEmpty)
+    }
+
     @Test func instructionIsDeliveredToClaudeAndCodex() {
         #expect(JournalSupport.arguments(kind: .claude).first == "--append-system-prompt")
         let codex = JournalSupport.arguments(kind: .codex)

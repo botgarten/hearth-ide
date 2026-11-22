@@ -19,6 +19,8 @@ final class AgentRun: Identifiable {
     var detail: String?
     /// The agent's own session ID, used to continue the conversation after a restart.
     var sessionID: String?
+    /// Model and effort chosen at start; kept for restarts and resumes.
+    var options: AgentLaunchOptions
     let created: Date
     var updated: Date
     var isRunning = false
@@ -26,6 +28,8 @@ final class AgentRun: Identifiable {
     var error: String?
     /// Bumped on every (re)start so views pick up the terminal view.
     var launchCount = 0
+    /// New sandbox rules are waiting for this session; it restarts once its current turn ends.
+    var restartPending = false
 
     /// Steps and decisions the agent recorded with `hearth-journal`, plus the user's revocations.
     var journal = Journal()
@@ -39,13 +43,15 @@ final class AgentRun: Identifiable {
     @ObservationIgnored var themedTheme: AppAppearance?
 
     init(id: String = UUID().uuidString.lowercased(), kind: AgentKind, directory: String, purpose: Purpose = .session,
-         title: String? = nil, sessionID: String? = nil, created: Date = Date(), updated: Date = Date()) {
+         title: String? = nil, sessionID: String? = nil, options: AgentLaunchOptions = .none,
+         created: Date = Date(), updated: Date = Date()) {
         self.id = id
         self.kind = kind
         self.directory = directory
         self.purpose = purpose
         self.title = title ?? (purpose == .login ? String(localized: "\(kind.displayName) – Sign-in") : kind.displayName)
         self.sessionID = sessionID
+        self.options = options
         self.created = created
         self.updated = updated
     }
@@ -112,8 +118,9 @@ final class AgentHost {
     // MARK: Lifecycle
 
     @discardableResult
-    func start(kind: AgentKind, directory: String, purpose: AgentRun.Purpose = .session) -> AgentRun {
-        let run = AgentRun(kind: kind, directory: directory, purpose: purpose)
+    func start(kind: AgentKind, directory: String, purpose: AgentRun.Purpose = .session,
+               options: AgentLaunchOptions = .none) -> AgentRun {
+        let run = AgentRun(kind: kind, directory: directory, purpose: purpose, options: options)
         runs.append(run)
         launch(run)
         save()
@@ -156,13 +163,27 @@ final class AgentHost {
     func stopAll() { runs.forEach(stop) }
 
     /// Restarts running sessions so new sandbox settings apply (Claude/Codex continue their conversation).
+    /// A session in the middle of a turn restarts when the turn ends: interrupting it would throw
+    /// the turn's work away and resume it later, re-reading the whole conversation at full price.
     func restartRunning() {
         for run in runs where run.isRunning && run.purpose == .session {
-            run.restartAfterExit = true
-            stop(run)
+            if Self.restartsNow(run.status) { restartNow(run) } else { run.restartPending = true }
         }
     }
+
+    /// Whether a session in this state can be restarted without interrupting its work.
+    nonisolated static func restartsNow(_ status: AgentStatus) -> Bool {
+        status != .running && status != .needsInput
+    }
+
+    private func restartNow(_ run: AgentRun) {
+        run.restartPending = false
+        run.restartAfterExit = true
+        stop(run)
+    }
+
     var runningCount: Int { runs.filter(\.isRunning).count }
+    var restartPendingCount: Int { runs.filter { $0.isRunning && $0.restartPending }.count }
 
     private func launch(_ run: AgentRun) {
         run.error = nil
@@ -171,7 +192,7 @@ final class AgentHost {
         if run.purpose == .login { args = run.kind.loginArguments ?? [] }
         else {
             if !run.canResume || !(run.sessionID.map(Self.validSessionID) ?? true) { run.sessionID = nil }
-            args = run.kind.arguments(resume: run.sessionID)
+            args = run.kind.arguments(resume: run.sessionID, options: run.options)
         }
         let launch: SandboxManager.Launch
         do {
@@ -224,6 +245,7 @@ final class AgentHost {
 
     private func processExited(_ run: AgentRun, code: Int32?) {
         run.isRunning = false
+        run.restartPending = false
         filesChanged(run)
         run.exitCode = code
         pollEvents(run)
@@ -372,6 +394,7 @@ final class AgentHost {
         run.detail = (status == .needsInput || status == .done) ? detail : nil
         run.updated = Date()
         if changed, status == .needsInput || status == .done { onAttention?(run) }
+        if run.restartPending, run.isRunning, Self.restartsNow(status) { restartNow(run) }
     }
 
     // MARK: Persistence
@@ -382,6 +405,7 @@ final class AgentHost {
         var directory: String
         var title: String
         var sessionID: String?
+        var options: AgentLaunchOptions?
         var created: Date
         var updated: Date
     }
@@ -393,7 +417,7 @@ final class AgentHost {
               let records = try? JSONDecoder().decode([Record].self, from: data) else { return }
         runs = records.map {
             AgentRun(id: $0.id, kind: $0.kind, directory: $0.directory, title: $0.title,
-                     sessionID: $0.sessionID, created: $0.created, updated: $0.updated)
+                     sessionID: $0.sessionID, options: $0.options ?? .none, created: $0.created, updated: $0.updated)
         }
         // Show the recorded history of finished sessions too.
         runs.forEach(pollJournal)
@@ -402,7 +426,8 @@ final class AgentHost {
     func save() {
         let records = runs.filter { $0.purpose == .session }.map {
             Record(id: $0.id, kind: $0.kind, directory: $0.directory, title: $0.title,
-                   sessionID: $0.sessionID, created: $0.created, updated: $0.updated)
+                   sessionID: $0.sessionID, options: $0.options == .none ? nil : $0.options,
+                   created: $0.created, updated: $0.updated)
         }
         guard let data = try? JSONEncoder().encode(records) else { return }
         try? FileManager.default.createDirectory(at: SandboxManager.supportDirectory, withIntermediateDirectories: true)

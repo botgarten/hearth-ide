@@ -63,6 +63,43 @@ enum AgentKind: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Models offered when starting a session: aliases the CLI resolves to its latest model,
+    /// cheapest useful one first. Empty: the agent's own default only.
+    var modelChoices: [String] {
+        self == .claude ? ["sonnet", "haiku", "opus", "fable"] : []
+    }
+
+    /// Reasoning effort levels offered when starting a session (empty: no choice).
+    var effortChoices: [String] {
+        switch self {
+        case .claude: ["low", "medium", "high", "xhigh", "max"]
+        case .codex: ["low", "medium", "high"]
+        default: []
+        }
+    }
+
+    /// Arguments for the chosen model and effort. Unknown values are dropped (the options
+    /// are read back from Hearth's session list, so they are checked, not trusted).
+    func arguments(options: AgentLaunchOptions) -> [String] {
+        var args: [String] = []
+        let model = options.model.flatMap { modelChoices.contains($0) ? $0 : nil }
+        let effort = options.effort.flatMap { effortChoices.contains($0) ? $0 : nil }
+        switch self {
+        case .claude:
+            if let model { args += ["--model", model] }
+            if let effort { args += ["--effort", effort] }
+        case .codex:
+            if let effort { args += ["-c", "model_reasoning_effort=\"\(effort)\""] }
+        default: break
+        }
+        return args
+    }
+
+    /// Arguments for a fresh session, or one continuing `sessionID` when the agent supports it.
+    func arguments(resume sessionID: String?, options: AgentLaunchOptions) -> [String] {
+        arguments(options: options) + arguments(resume: sessionID)
+    }
+
     /// Arguments for a fresh session, or one continuing `sessionID` when the agent supports it.
     func arguments(resume sessionID: String?) -> [String] {
         switch self {
@@ -127,6 +164,29 @@ enum AgentKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .shell:
             AgentSandboxSpec()
         }
+    }
+}
+
+/// Model and reasoning effort a session starts with (nil: the agent's own default).
+/// A smaller model or lower effort is the biggest lever on token use for routine work.
+struct AgentLaunchOptions: Codable, Equatable, Sendable {
+    var model: String?
+    var effort: String?
+
+    static let none = AgentLaunchOptions()
+
+    private static func key(_ directory: String) -> String { "agents.launchOptions." + directory }
+
+    /// The choice last used in `directory`.
+    static func last(in directory: String) -> AgentLaunchOptions {
+        guard let data = UserDefaults.standard.data(forKey: key(directory)),
+              let options = try? JSONDecoder().decode(AgentLaunchOptions.self, from: data) else { return .none }
+        return options
+    }
+
+    static func remember(_ options: AgentLaunchOptions, in directory: String) {
+        guard let data = try? JSONEncoder().encode(options) else { return }
+        UserDefaults.standard.set(data, forKey: key(directory))
     }
 }
 

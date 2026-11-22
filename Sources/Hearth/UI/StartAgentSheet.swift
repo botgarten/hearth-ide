@@ -12,6 +12,8 @@ struct StartAgentSheet: View {
     @State private var cloning = false
     /// Earlier session to continue; nil starts a new one.
     @State private var resumeID: String?
+    /// Model and effort for a new session; remembered per folder.
+    @State private var launchOptions = AgentLaunchOptions.none
     @State private var cloneURL = ""
     @State private var cloneParent = NSHomeDirectory()
     @State private var cloneName = ""
@@ -74,6 +76,10 @@ struct StartAgentSheet: View {
                 .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
             }
 
+            if resumeID == nil, !kind.wrappedValue.modelChoices.isEmpty || !kind.wrappedValue.effortChoices.isEmpty {
+                modelSection
+            }
+
             if !cloning, !earlierSessions.isEmpty { sessionSection }
 
             HStack {
@@ -95,7 +101,10 @@ struct StartAgentSheet: View {
         }
         .padding(24)
         .frame(width: 520)
-        .onChange(of: directory.wrappedValue) { _, _ in resumeID = nil }
+        .onChange(of: directory.wrappedValue) { _, new in
+            resumeID = nil
+            launchOptions = AgentLaunchOptions.last(in: new)
+        }
         .onChange(of: kind.wrappedValue) { _, _ in resumeID = nil }
         .task {
             let defaults = UserDefaults.standard
@@ -117,6 +126,39 @@ struct StartAgentSheet: View {
                 kind.wrappedValue = first
             }
         }
+    }
+
+    /// Model and effort: a smaller model or less effort uses far fewer tokens for routine work.
+    private var modelSection: some View {
+        let k = kind.wrappedValue
+        return VStack(alignment: .leading, spacing: 6) {
+            Text("Model").font(.headline)
+            HStack(spacing: 16) {
+                if !k.modelChoices.isEmpty {
+                    Picker("Model", selection: choice(\.model, in: k.modelChoices)) {
+                        Text("Default").tag(String?.none)
+                        ForEach(k.modelChoices, id: \.self) { Text($0.capitalized).tag(String?.some($0)) }
+                    }
+                    .fixedSize()
+                }
+                if !k.effortChoices.isEmpty {
+                    Picker("Effort", selection: choice(\.effort, in: k.effortChoices)) {
+                        Text("Default").tag(String?.none)
+                        ForEach(k.effortChoices, id: \.self) { Text($0).tag(String?.some($0)) }
+                    }
+                    .fixedSize()
+                }
+                Spacer()
+            }
+            Text("Smaller models and lower effort use far fewer tokens; enough for most routine work.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// A picker binding that shows a remembered value the current agent does not offer as "Default".
+    private func choice(_ path: WritableKeyPath<AgentLaunchOptions, String?>, in choices: [String]) -> Binding<String?> {
+        Binding(get: { launchOptions[keyPath: path].flatMap { choices.contains($0) ? $0 : nil } },
+                set: { launchOptions[keyPath: path] = $0 })
     }
 
     /// Earlier sessions of this agent in the chosen folder that can be continued, newest first.
@@ -310,7 +352,15 @@ struct StartAgentSheet: View {
         if purpose == .session, let id = resumeID, let run = model.agents.run(id) {
             model.openSession(run)
         } else {
-            model.startAgent(kind.wrappedValue, directory: directory.wrappedValue, purpose: purpose)
+            let k = kind.wrappedValue
+            // Only what this agent understands; the rest stays remembered for the folder.
+            var options = AgentLaunchOptions.none
+            if purpose == .session {
+                AgentLaunchOptions.remember(launchOptions, in: directory.wrappedValue)
+                options.model = launchOptions.model.flatMap { k.modelChoices.contains($0) ? $0 : nil }
+                options.effort = launchOptions.effort.flatMap { k.effortChoices.contains($0) ? $0 : nil }
+            }
+            model.startAgent(k, directory: directory.wrappedValue, purpose: purpose, options: options)
         }
         dismiss()
     }

@@ -44,6 +44,9 @@ struct GitView: View {
     @State private var newBranchBase: String?
     @State private var newBranchName = ""
     @State private var commitMessage = ""
+    @State private var generating: Task<Void, Never>?
+    @State private var messageAgents: [AgentKind] = []
+    @AppStorage("git.messageAgent") private var messageAgentRaw = ""
     @State private var pendingMerge: Git.Branch?
     @State private var pendingStashDrop: GitStash?
     @State private var stashMessage: String?
@@ -397,12 +400,76 @@ struct GitView: View {
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(stagedChanges.isEmpty || !SandboxGitOperation.validMessage(commitMessage))
                 .help(stagedChanges.isEmpty ? "Stage changes first" : "Commit the staged changes in the Git sandbox (hooks do not run)")
+                generateButton
                 Spacer()
                 Button { stashMessage = "" } label: { Label("Stash", systemImage: "tray.and.arrow.down") }
                     .disabled(snapshot.changes.isEmpty)
                     .help("Put the uncommitted changes aside")
             }
             .controlSize(.small)
+        }
+    }
+
+    private var messageAgent: AgentKind? {
+        messageAgents.first { $0.rawValue == messageAgentRaw } ?? messageAgents.first
+    }
+
+    @ViewBuilder
+    private var generateButton: some View {
+        if generating != nil {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Button("Cancel") { generating?.cancel() }
+            }
+        } else {
+            Menu {
+                if messageAgents.isEmpty {
+                    Text("No agent installed (Claude Code, Codex or Gemini CLI)")
+                } else {
+                    SwiftUI.Section("Write with") {
+                        ForEach(messageAgents) { kind in
+                            Toggle(kind.displayName, isOn: Binding(get: { messageAgent == kind },
+                                                                   set: { if $0 { messageAgentRaw = kind.rawValue } }))
+                        }
+                    }
+                }
+            } label: {
+                Label("Generate", systemImage: "sparkles")
+            } primaryAction: {
+                generateMessage()
+            }
+            .fixedSize()
+            .disabled(snapshot.changes.isEmpty)
+            .help(messageAgent.map { stagedChanges.isEmpty
+                    ? String(localized: "Write a commit message for all changes with \($0.displayName)")
+                    : String(localized: "Write a commit message for the staged changes with \($0.displayName)") }
+                  ?? String(localized: "Install Claude Code, Codex or Gemini CLI to generate commit messages"))
+            .task {
+                messageAgents = await Task.detached {
+                    CommitMessageGenerator.supported.filter { SandboxManager.locate($0) != nil }
+                }.value
+            }
+        }
+    }
+
+    private func generateMessage() {
+        guard let kind = messageAgent else {
+            model.banner = String(localized: "Install Claude Code, Codex or Gemini CLI to generate commit messages")
+            return
+        }
+        let changes = snapshot.changes
+        let root = root
+        generating = Task {
+            defer { generating = nil }
+            do {
+                let message = try await CommitMessageGenerator.generate(with: kind, in: root, changes: changes)
+                guard !Task.isCancelled else { return }
+                commitMessage = message
+            } catch is CancellationError {
+            } catch {
+                guard !Task.isCancelled else { return }
+                model.banner = "\(kind.displayName): " + error.localizedDescription
+            }
         }
     }
 

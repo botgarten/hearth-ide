@@ -218,33 +218,46 @@ enum JournalSupport {
 
     static func url(runDirectory: URL) -> URL { runDirectory.appendingPathComponent(fileName) }
 
-    /// POSIX shell script; builds the JSON line with `printf`, escaping only what JSON requires.
+    /// POSIX shell script; builds the JSON lines with `printf`, escaping only what JSON requires.
+    /// Several entries can be recorded in one call, separated by `+`: every call is a tool call
+    /// of the agent (a full model round trip), so batching is what keeps the journal cheap.
+    /// Entries are only written when the whole call is valid.
     static let helperScript = """
     #!/bin/sh
-    # hearth-journal step|decision|question <id> [--parent ID] [--title T] [--status S] [--why T] [--rejected T]... [--answer T]
+    # hearth-journal step|decision|question <id> [--parent ID] [--title T] [--status S] [--why T] [--rejected T]... [--answer T] [+ <next entry>]...
     # Records progress for the Hearth session overview.
     file="${HEARTH_JOURNAL:?not inside a Hearth session}"
-    type="$1"; id="$2"
-    case "$type" in step|decision|question) ;; *) echo "usage: hearth-journal step|decision|question <id> [options]" >&2; exit 2;; esac
-    [ -n "$id" ] || { echo "missing id" >&2; exit 2; }
-    shift 2
+    usage() { echo "usage: hearth-journal step|decision|question <id> [options] [+ step|decision|question <id> [options]]..." >&2; exit 2; }
     esc() { printf '%s' "$1" | /usr/bin/sed -e 's/\\\\/\\\\\\\\/g' -e 's/"/\\\\"/g' | /usr/bin/tr '\\n\\r\\t' '   '; }
-    json="{\\"t\\":\\"$type\\",\\"id\\":\\"$(esc "$id")\\""
-    rejected=""
-    while [ $# -gt 1 ]; do
-      case "$1" in
-        --parent) json="$json,\\"parent\\":\\"$(esc "$2")\\"" ;;
-        --title) json="$json,\\"title\\":\\"$(esc "$2")\\"" ;;
-        --status) json="$json,\\"status\\":\\"$(esc "$2")\\"" ;;
-        --why) json="$json,\\"why\\":\\"$(esc "$2")\\"" ;;
-        --answer) json="$json,\\"answer\\":\\"$(esc "$2")\\"" ;;
-        --rejected) rejected="$rejected${rejected:+,}\\"$(esc "$2")\\"" ;;
-        *) echo "unknown option $1" >&2; exit 2 ;;
-      esac
+    nl='
+    '
+    out=""
+    [ $# -gt 0 ] || usage
+    while [ $# -gt 0 ]; do
+      type="$1"; id="$2"
+      case "$type" in step|decision|question) ;; *) usage ;; esac
+      [ -n "$id" ] && [ "$id" != "+" ] || { echo "missing id" >&2; exit 2; }
       shift 2
+      json="{\\"t\\":\\"$type\\",\\"id\\":\\"$(esc "$id")\\""
+      rejected=""
+      while [ $# -gt 0 ] && [ "$1" != "+" ]; do
+        [ $# -gt 1 ] || { echo "missing value for $1" >&2; exit 2; }
+        case "$1" in
+          --parent) json="$json,\\"parent\\":\\"$(esc "$2")\\"" ;;
+          --title) json="$json,\\"title\\":\\"$(esc "$2")\\"" ;;
+          --status) json="$json,\\"status\\":\\"$(esc "$2")\\"" ;;
+          --why) json="$json,\\"why\\":\\"$(esc "$2")\\"" ;;
+          --answer) json="$json,\\"answer\\":\\"$(esc "$2")\\"" ;;
+          --rejected) rejected="$rejected${rejected:+,}\\"$(esc "$2")\\"" ;;
+          *) echo "unknown option $1" >&2; exit 2 ;;
+        esac
+        shift 2
+      done
+      [ $# -eq 0 ] || shift
+      [ -z "$rejected" ] || json="$json,\\"rejected\\":[$rejected]"
+      out="$out$json}$nl"
     done
-    [ -z "$rejected" ] || json="$json,\\"rejected\\":[$rejected]"
-    printf '%s}\\n' "$json" >> "$file"
+    printf '%s' "$out" >> "$file"
     """
 
     /// Installs the helper into the run folder and returns the folder to put on PATH.
@@ -263,12 +276,15 @@ enum JournalSupport {
     /// Short instruction for the agent's system prompt.
     static let instruction = """
     Hearth shows the user a tree of your work so they do not have to read all your output. \
-    Record it with the shell command `hearth-journal` (already on PATH): \
-    `hearth-journal step <id> --parent <id> --title "…" --status planned|running|done|blocked` for each step, \
-    `hearth-journal decision <id> --parent <step-id> --title "…" --why "…" --rejected "alternative"` for every real choice \
-    between options, and `hearth-journal question <id> --parent <id> --title "…" [--answer "…"]` for open questions. \
-    Use short unique ids (s1, s2, d1, q1). Repeat a call with the same id to update it. \
-    Keep titles under 80 characters. If the user tells you they revoked an entry, undo the dependent work and record the replacement.
+    Record it with the shell command `hearth-journal` (already on PATH). Every call costs a tool call, so batch: \
+    join several entries in one call with ` + `, record the whole plan in one call at the start, and combine \
+    status changes with the next real command instead of calling it after every small step. \
+    Entries: `step <id> --parent <id> --title "…" --status planned|running|done|blocked`, \
+    `decision <id> --parent <step-id> --title "…" --why "…" --rejected "alternative"` (only for real choices between options), \
+    `question <id> --parent <id> --title "…" [--answer "…"]`. \
+    Example: `hearth-journal step s1 --status done + step s2 --status running`. \
+    Use short unique ids (s1, s2, d1, q1). Repeat an id to update it. Keep titles under 80 characters. \
+    If the user tells you they revoked an entry, undo the dependent work and record the replacement.
     """
 
     /// Agent arguments that hand the instruction over as system/developer prompt, where the CLI has one.
