@@ -1,6 +1,6 @@
 # Hearth IDE – Änderungen
 
-## Unveröffentlicht
+## 0.11.0 · 2026-11-22
 
 - **Commit-Nachricht generieren:** Neben „Commit“ schreibt der Knopf „Generieren“ eine Commit-Nachricht für die vorgemerkten Änderungen (oder für alle, wenn nichts vorgemerkt ist). Die Nachricht passt sich Sprache und Stil der letzten Commits an. Über das Menü am Knopf wählst du den Agenten (Claude Code, Codex oder Gemini CLI). Der Agent läuft einmalig in seiner Sandbox mit seinem dortigen Login und ohne Werkzeuge: Hearth gibt ihm Dateiliste und Diff (gekürzt ab 20 000 Zeichen, Lockfiles und minifizierte Dateien nur in der Dateiliste), er antwortet nur mit der Nachricht. Die Nachricht landet im Eingabefeld und lässt sich vor dem Commit noch bearbeiten.
   Damit das wenig kostet, nutzt Claude Code dafür Haiku mit einem kurzen System-Prompt und ohne MCP-Server, Codex läuft mit geringem Reasoning-Aufwand.
