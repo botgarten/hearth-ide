@@ -6,8 +6,32 @@ struct InboxView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.themePalette) private var palette
     private let onlyAttention = State(initialValue: false)
+    /// The same sessions as a list or as a board; remembered across launches.
+    @AppStorage("sessions.board") private var board = false
 
     var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Picker("View", selection: $board) {
+                    Image(systemName: "list.bullet").help("List").tag(false)
+                    Image(systemName: AgentBoardView.symbol).help("Board").tag(true)
+                }
+                .pickerStyle(.segmented).labelsHidden().fixedSize()
+                Spacer()
+                Button { model.agents.startSheet = .init() } label: { Image(systemName: "plus") }
+                    .buttonStyle(.borderless).help("Start agent")
+            }
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            if board {
+                AgentBoardView(showList: { board = false })
+            } else {
+                list
+            }
+        }
+        .background(Color(nsColor: palette?.window ?? .windowBackgroundColor))
+    }
+
+    @ViewBuilder private var list: some View {
         let runs = model.agents.sorted
         let attention = runs.filter { $0.status.priority <= AgentStatus.done.priority }
         let shown = onlyAttention.wrappedValue ? attention : runs
@@ -49,8 +73,6 @@ struct InboxView: View {
                 HStack {
                     Text("Agents (\(model.agents.runningCount) active)").scaledFont(.caption, bold: true)
                     Spacer()
-                    Button { model.agents.startSheet = .init() } label: { Image(systemName: "plus") }
-                        .buttonStyle(.borderless).help("Start agent")
                 }
                 .textCase(nil)
             }

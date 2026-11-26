@@ -69,7 +69,11 @@ final class AppModel {
                 self.agents.acknowledge(run)
                 return
             }
-            let what = run.status == .needsInput ? String(localized: "is waiting for you") : String(localized: "is done")
+            let what = switch run.status {
+            case .needsInput: String(localized: "is waiting for you")
+            case .blocked: String(localized: "reported an error")
+            default: String(localized: "is done")
+            }
             Notifier.notify(title: run.title, body: "\(run.kind.displayName) \(what)" + (run.detail.map { ": \($0)" } ?? "."))
         }
         search.model = self

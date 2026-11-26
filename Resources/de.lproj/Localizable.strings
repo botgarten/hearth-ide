@@ -973,3 +973,20 @@
 "The clipboard contains no files." = "Die Zwischenablage enthält keine Dateien.";
 "The copied file no longer exists." = "Die kopierte Datei existiert nicht mehr.";
 "A folder cannot be copied into itself." = "Ein Ordner kann nicht in sich selbst kopiert werden.";
+
+/* Board and OSC 7501 program status */
+"Board" = "Board";
+"Has a question for you." = "Hat eine Frage an dich.";
+"Idle" = "Bereit";
+"Mark as seen" = "Als gesehen markieren";
+"Needs you" = "Braucht dich";
+"Needs you to sign in." = "Du musst dich anmelden.";
+"No agents" = "Keine Agenten";
+"Started agents appear here as cards." = "Gestartete Agenten erscheinen hier als Karten.";
+"Working" = "Arbeitet";
+"done after %@" = "fertig nach %@";
+"reported an error" = "hat einen Fehler gemeldet";
+"waiting %@" = "wartet seit %@";
+"working %@" = "arbeitet seit %@";
+"Ended sessions in the list: %lld" = "Beendete Sitzungen in der Liste: %lld";
+"View" = "Ansicht";

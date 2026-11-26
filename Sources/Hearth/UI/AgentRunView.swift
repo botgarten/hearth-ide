@@ -212,10 +212,14 @@ struct AgentRunRow: View {
                 Text("·")
                 Text(run.isRunning ? String(localized: "running") : String(localized: "ended"))
                 Text("·")
-                Text(run.updated.formatted(.relative(presentation: .named)))
+                if TurnTimer.isLive(run) {
+                    TurnTimer(run: run)
+                } else {
+                    Text(run.updated.formatted(.relative(presentation: .named)))
+                }
             }
             .scaledFont(.caption).foregroundStyle(.secondary)
-            if let detail = run.detail, run.status == .needsInput || run.status == .done {
+            if let detail = run.detail, run.status == .needsInput || run.status == .done || run.status == .blocked {
                 Text(detail).scaledFont(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
             if let error = run.error {

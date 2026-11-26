@@ -14,7 +14,15 @@ final class AgentRun: Identifiable {
     let directory: String
     let purpose: Purpose
     var title: String
-    var status: AgentStatus = .inactive
+    var status: AgentStatus = .inactive {
+        didSet { clock.transition(from: oldValue, to: status, at: Date()) }
+    }
+    /// Turn timer for the inbox and the board.
+    var clock = TurnClock()
+    /// Progress in percent the program reported over OSC 7501 while working.
+    var progress: Int?
+    /// The program reports its state over OSC 7501; terminal heuristics then stay out of it.
+    var reportsProgramStatus = false
     /// Last message from the agent (e.g. which permission it asks for).
     var detail: String?
     /// The agent's own session ID, used to continue the conversation after a restart.
@@ -223,6 +231,10 @@ final class AgentHost {
                 guard let self, let run else { return }
                 self.bell(run)
             }
+            delegate.security.onProgramStatus = { [weak self, weak run] records in
+                guard let self, let run else { return }
+                self.programStatus(run, records)
+            }
             view.terminalDelegate = delegate.security
             view.processDelegate = delegate
             run.delegate = delegate
@@ -239,12 +251,15 @@ final class AgentHost {
         run.themedScale = 1
         run.isRunning = true
         run.launchCount += 1
+        run.reportsProgramStatus = false
+        run.progress = nil
         run.status = .idle
         run.updated = Date()
     }
 
     private func processExited(_ run: AgentRun, code: Int32?) {
         run.isRunning = false
+        run.progress = nil
         run.restartPending = false
         filesChanged(run)
         run.exitCode = code
@@ -275,13 +290,31 @@ final class AgentHost {
     // MARK: Status
 
     private func userTyped(_ run: AgentRun, _ data: ArraySlice<UInt8>) {
-        guard run.isRunning, run.kind.statusSource != .hooks, data.contains(13) else { return }
+        guard run.isRunning, !run.reportsProgramStatus, run.kind.statusSource != .hooks, data.contains(13) else { return }
         set(run, .running)
     }
 
     private func bell(_ run: AgentRun) {
-        guard run.isRunning, run.kind.statusSource == .terminal else { return }
+        guard run.isRunning, !run.reportsProgramStatus, run.kind.statusSource == .terminal else { return }
         set(run, .needsInput, detail: String(localized: "The agent needs your attention."))
+    }
+
+    /// OSC 7501: any program in the session's terminal (an agent, a script, a build) reports
+    /// working, blocked, done, idle or error. A result stays visible until the user has seen it,
+    /// like a finished turn reported by hooks.
+    func programStatus(_ run: AgentRun, _ records: [ReportedProgramStatus]) {
+        guard run.isRunning else { return }
+        run.reportsProgramStatus = true
+        guard let summary = ProgramStatusSummary.summarize(records) else {
+            run.progress = nil
+            if [.running, .needsInput, .blocked].contains(run.status) { set(run, .idle) }
+            return
+        }
+        run.progress = summary.progress
+        if summary.status == .idle, run.status == .done { return }
+        if summary.status == run.status, summary.detail == run.detail { return }
+        set(run, summary.status, detail: summary.detail)
+        if summary.status == .done { filesChanged(run) }
     }
 
     private func pollEvents() {
@@ -391,9 +424,9 @@ final class AgentHost {
     private func set(_ run: AgentRun, _ status: AgentStatus, detail: String? = nil) {
         let changed = run.status != status
         run.status = status
-        run.detail = (status == .needsInput || status == .done) ? detail : nil
+        run.detail = (status == .needsInput || status == .done || status == .blocked) ? detail : nil
         run.updated = Date()
-        if changed, status == .needsInput || status == .done { onAttention?(run) }
+        if changed, status == .needsInput || status == .done || status == .blocked { onAttention?(run) }
         if run.restartPending, run.isRunning, Self.restartsNow(status) { restartNow(run) }
     }
 

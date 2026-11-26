@@ -1,5 +1,11 @@
 # Hearth IDE – Änderungen
 
+## Unveröffentlicht
+
+- **Board:** Der Bereich „Sitzungen“ hat oben einen Umschalter zwischen Liste und Board. Das Board zeigt laufende Agenten als Karten in den Spalten „Braucht dich“, „Arbeitet“, „Erledigt“ und „Bereit“: nebeneinander, wenn der Bereich breit (oder maximiert) ist, sonst untereinander und nur mit belegten Spalten. Ein Klick öffnet die Sitzung im Chat. Beendete Sitzungen bleiben in der Liste.
+- **Timer pro Agent:** Karten und Listeneinträge zeigen, wie lange der Agent schon arbeitet („arbeitet seit 3:07“), wie lange er auf dich wartet und wie lange sein letzter Durchgang gedauert hat („fertig nach 4:10“). Rückfragen während eines Durchgangs zählen zum Durchgang.
+- **Status über OSC 7501:** Jedes Programm im Terminal einer Sitzung kann seinen Zustand selbst melden (Program Status Protocol wie bei herdr), z. B. `printf '\e]7501;state=working:progress=40\e\\'`. Hearth übernimmt arbeitet/blockiert/fertig/bereit/Fehler samt Fortschrittsbalken und Nachricht in Inbox, Board und Benachrichtigungen. Damit bekommen auch OpenCode, Gemini CLI, eigene Skripte und die Sandbox-Shell einen verlässlichen Status statt der Heuristik über Eingabe und Terminal-Glocke. Nachrichten werden von unsichtbaren Steuer- und Richtungszeichen bereinigt.
+
 ## 0.12.0 · 2026-11-23
 
 - **Kopieren, Ausschneiden und Einfügen im Verzeichnis:** ⌘C, ⌘X und ⌘V (auch im Kontextmenü) kopieren bzw. verschieben Dateien und Ordner. Eingefügt wird in den gewählten Ordner, bei einer gewählten Datei in deren Ordner. Das klappt auch mit dem Finder in beide Richtungen: im Finder kopierte Dateien lassen sich ins Projekt einfügen. Bei gleichem Namen entsteht wie im Finder „Datei copy.txt“. Es gelten dieselben Grenzen wie beim Verschieben: nur innerhalb des Projekts, nicht in `.git`, ungespeicherte Dateien zuerst sichern.

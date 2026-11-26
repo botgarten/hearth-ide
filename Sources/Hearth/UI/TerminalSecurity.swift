@@ -10,6 +10,8 @@ final class TerminalSecurity: TerminalViewDelegate {
     /// Observers for agent status heuristics (keyboard input, terminal bell).
     var onSend: ((ArraySlice<UInt8>) -> Void)?
     var onBell: (() -> Void)?
+    /// OSC 7501 records (Program Status Protocol) after every report or removal.
+    var onProgramStatus: (([ReportedProgramStatus]) -> Void)?
 
     init(_ view: LocalProcessTerminalView) { processView = view }
 
@@ -23,7 +25,10 @@ final class TerminalSecurity: TerminalViewDelegate {
     func bell(source: TerminalView) { onBell?(); processView?.bell(source: source) }
     func iTermContent(source: TerminalView, content: ArraySlice<UInt8>) { processView?.iTermContent(source: source, content: content) }
     func rangeChanged(source: TerminalView, startY: Int, endY: Int) { processView?.rangeChanged(source: source, startY: startY, endY: endY) }
-    func programStatusChanged(source: TerminalView, records: [TerminalProgramStatus]) { processView?.programStatusChanged(source: source, records: records) }
+    func programStatusChanged(source: TerminalView, records: [TerminalProgramStatus]) {
+        onProgramStatus?(records.compactMap(ReportedProgramStatus.init))
+        processView?.programStatusChanged(source: source, records: records)
+    }
 
     func requestOpenLink(source: TerminalView, link: String, params: [String: String]) {
         guard let url = URL(string: link), ["https", "http", "mailto"].contains(url.scheme?.lowercased() ?? "") else { return }
@@ -40,4 +45,12 @@ final class TerminalSecurity: TerminalViewDelegate {
     func kittyClipboardRead(source: TerminalView, location: KittyClipboardLocation, mimeType: String) -> KittyClipboardReadResult? { .denied }
     func kittyClipboardWrite(source: TerminalView, location: KittyClipboardLocation, content: KittyClipboardWriteContent) -> KittyClipboardWriteResult { .denied }
     func kittyClipboardRequestPermission(source: TerminalView, request: KittyClipboardPermissionRequest) -> KittyClipboardPermissionResult { .deny }
+}
+
+extension ReportedProgramStatus {
+    init?(_ record: TerminalProgramStatus) {
+        guard let state = State(rawValue: record.state.rawValue) else { return nil }
+        self.init(state: state, kind: record.kind.flatMap { Kind(rawValue: $0.rawValue) },
+                  progress: record.progress, title: record.title, message: record.message)
+    }
 }

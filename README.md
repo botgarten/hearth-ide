@@ -32,10 +32,20 @@ in there once separately.
 
 The chat area shows the agent as a terminal. The inbox knows its status: Claude
 Code reports it through hooks (running, waiting for approval, done), Codex
-through `notify`, other agents through input and the terminal bell. Sessions
+through `notify`, other agents through input and the terminal bell. Any program
+in the session’s terminal can also report its state with the Program Status
+Protocol (OSC 7501, as in [herdr](https://herdr.dev/core/)), e.g.
+`printf '\e]7501;state=blocked:kind=question\e\\'` – states `working` (with
+`progress=0…100`), `blocked`, `done`, `idle`, `error`; `msg` is base64. Sessions
 keep running when you switch; finished Claude/Codex/OpenCode sessions can be
 resumed. Each session’s profile, log and status events live in
 `~/Library/Application Support/Hearth/runs/<id>/`.
+
+The sessions area switches between a list and a **board**: cards in the columns
+*Needs you*, *Working*, *Done* and *Idle*, side by side when the area is wide,
+stacked when it is narrow. Every card and list row has a timer – how long the
+agent has been working, how long it has been waiting for you, or how long its
+last turn took.
 
 **Settings** (⌘,): General (language, appearance, terminal), Agents (installed?,
 sign in, keychain), Sandbox (extra domains, ports, folders, SSH for the Git area,
