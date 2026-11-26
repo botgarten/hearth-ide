@@ -1,6 +1,6 @@
 # Hearth IDE – Änderungen
 
-## Unveröffentlicht
+## 0.13.0 · 2026-11-26
 
 - **Board:** Der Bereich „Sitzungen“ hat oben einen Umschalter zwischen Liste und Board. Das Board zeigt laufende Agenten als Karten in den Spalten „Braucht dich“, „Arbeitet“, „Erledigt“ und „Bereit“: nebeneinander, wenn der Bereich breit (oder maximiert) ist, sonst untereinander und nur mit belegten Spalten. Ein Klick öffnet die Sitzung im Chat. Beendete Sitzungen bleiben in der Liste.
 - **Timer pro Agent:** Karten und Listeneinträge zeigen, wie lange der Agent schon arbeitet („arbeitet seit 3:07“), wie lange er auf dich wartet und wie lange sein letzter Durchgang gedauert hat („fertig nach 4:10“). Rückfragen während eines Durchgangs zählen zum Durchgang.
