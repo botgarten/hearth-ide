@@ -81,6 +81,7 @@ final class LayoutStore {
 
     /// Restores the saved layout (or the standard one).
     func restore() {
+        savedLayouts = UIStateStore.load(.savedLayouts) ?? []
         // Read the weights first: assigning paneTree prunes (and re-saves) splitWeights.
         let saved: [UUID: [Double]] = UIStateStore.load(.splitWeights) ?? [:]
         if let tree: PaneNode = UIStateStore.load(.paneTree), !tree.panes.isEmpty {
@@ -196,6 +197,42 @@ final class LayoutStore {
     }
 
     func resetLayout() { apply(.standard) }
+
+    // MARK: Saved layouts
+
+    /// Layouts the user saved by name, in menu order. Loaded in restore(), persisted.
+    var savedLayouts: [SavedLayout] = [] {
+        didSet { UIStateStore.save(savedLayouts, as: .savedLayouts) }
+    }
+
+    /// Saves the current arrangement (with its sizes) under `name`; an existing layout
+    /// with the same name is replaced in place.
+    func saveCurrentLayout(as name: String) {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        let ids = paneTree.splitIDs
+        var layout = SavedLayout(name: name, tree: paneTree, weights: splitWeights.filter { ids.contains($0.key) })
+        if let i = savedLayouts.firstIndex(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+            layout.id = savedLayouts[i].id
+            savedLayouts[i] = layout
+            notify?(String(localized: "Layout “\(name)” updated"))
+        } else {
+            savedLayouts.append(layout)
+            notify?(String(localized: "Layout “\(name)” saved"))
+        }
+    }
+
+    func apply(_ saved: SavedLayout) {
+        let (tree, weights) = saved.build()
+        guard !tree.panes.isEmpty else { return }
+        maximizedPane = nil
+        paneTree = tree
+        splitWeights = weights
+    }
+
+    func deleteSavedLayout(_ id: UUID) {
+        savedLayouts.removeAll { $0.id == id }
+    }
 
     // MARK: Detached pane windows
 

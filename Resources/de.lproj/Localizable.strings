@@ -990,3 +990,10 @@
 "working %@" = "arbeitet seit %@";
 "Ended sessions in the list: %lld" = "Beendete Sitzungen in der Liste: %lld";
 "View" = "Ansicht";
+"My layouts" = "Eigene Layouts";
+"Save current layout…" = "Aktuelles Layout speichern…";
+"Save current layout" = "Aktuelles Layout speichern";
+"Delete saved layout" = "Gespeichertes Layout löschen";
+"Areas and their sizes are saved. Using an existing name replaces that layout." = "Gespeichert werden die Bereiche und ihre Größen. Ein bereits vorhandener Name ersetzt dieses Layout.";
+"Layout “%@” saved" = "Layout „%@“ gespeichert";
+"Layout “%@” updated" = "Layout „%@“ aktualisiert";

@@ -1,5 +1,9 @@
 # Hearth IDE – Änderungen
 
+## Unveröffentlicht
+
+- **Eigene Layouts speichern:** Im Menü „Layout“ speichert „Aktuelles Layout speichern…“ die aktuelle Anordnung der Bereiche samt ihrer Größen unter einem Namen. Gespeicherte Layouts stehen unter „Eigene Layouts“ und lassen sich per Klick wiederherstellen, auch über Search Everywhere („Layout: <Name>“). Ein bereits vorhandener Name ersetzt das Layout, „Gespeichertes Layout löschen“ entfernt es wieder. Die Layouts bleiben über Neustarts erhalten.
+
 ## 0.13.0 · 2026-11-26
 
 - **Board:** Der Bereich „Sitzungen“ hat oben einen Umschalter zwischen Liste und Board. Das Board zeigt laufende Agenten als Karten in den Spalten „Braucht dich“, „Arbeitet“, „Erledigt“ und „Bereit“: nebeneinander, wenn der Bereich breit (oder maximiert) ist, sonst untereinander und nur mit belegten Spalten. Ein Klick öffnet die Sitzung im Chat. Beendete Sitzungen bleiben in der Liste.

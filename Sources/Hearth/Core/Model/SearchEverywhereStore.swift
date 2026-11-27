@@ -259,6 +259,11 @@ final class SearchEverywhereStore {
                 withAnimation(.easeOut(duration: 0.2)) { model.layout.apply(preset) }
             }
         }
+        for saved in model.layout.savedLayouts {
+            add("layout.saved." + saved.id.uuidString, String(localized: "Layout: \(saved.name)"), "arrange panes saved custom", "square.grid.3x1.below.line.grid.1x2") {
+                withAnimation(.easeOut(duration: 0.2)) { model.layout.apply(saved) }
+            }
+        }
         add("workspace.refresh", String(localized: "Refresh workspace"), "reload files git status", "arrow.clockwise") { model.workspace.refreshNow() }
         if let root = model.workspaceRoot {
             add("git.pull", String(localized: "Git: Pull"), "update fetch merge", "arrow.down.circle") {

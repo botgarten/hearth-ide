@@ -4,6 +4,8 @@ import AppKit
 struct ContentView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
+    @State private var namingLayout = false
+    @State private var layoutName = ""
 
     var body: some View {
         WorkspaceLayoutView()
@@ -52,6 +54,24 @@ struct ContentView: View {
                             }
                         }
                     }
+                    Section("My layouts") {
+                        ForEach(model.layout.savedLayouts) { saved in
+                            Button { withAnimation(.easeOut(duration: 0.2)) { model.layout.apply(saved) } } label: {
+                                Label(saved.name, systemImage: "square.grid.3x1.below.line.grid.1x2")
+                            }
+                        }
+                        Button {
+                            layoutName = ""
+                            namingLayout = true
+                        } label: { Label("Save current layout…", systemImage: "square.and.arrow.down") }
+                        if !model.layout.savedLayouts.isEmpty {
+                            Menu {
+                                ForEach(model.layout.savedLayouts) { saved in
+                                    Button(saved.name) { model.layout.deleteSavedLayout(saved.id) }
+                                }
+                            } label: { Label("Delete saved layout", systemImage: "trash") }
+                        }
+                    }
                     if model.layout.maximizedPane != nil {
                         Button("Restore layout") { model.layout.maximizedPane = nil }
                     }
@@ -60,6 +80,14 @@ struct ContentView: View {
                 }
                 .help("Add areas, choose layouts – drag an area by its header to move it")
             }
+        }
+        .alert("Save current layout", isPresented: $namingLayout) {
+            TextField("Name", text: $layoutName)
+            Button("Save") { model.layout.saveCurrentLayout(as: layoutName) }
+                .disabled(layoutName.trimmingCharacters(in: .whitespaces).isEmpty)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Areas and their sizes are saved. Using an existing name replaces that layout.")
         }
         .overlay {
             if model.search.isOpen { SearchEverywhereView() }

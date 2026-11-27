@@ -4,7 +4,7 @@ import Foundation
 enum UIStateStore {
     enum Key: String {
         case paneTree, splitWeights, previewMode, previewFile, textScales, openTabs, detachedTabs,
-             editorWorkspaces, shownEditorWorkspace
+             editorWorkspaces, shownEditorWorkspace, savedLayouts
     }
 
     static func save<T: Encodable>(_ value: T?, as key: Key) {

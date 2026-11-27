@@ -165,3 +165,28 @@ enum LayoutPreset: String, CaseIterable, Identifiable {
         return (tree, weights)
     }
 }
+
+/// A layout the user saved under a name (Layout menu → “Save current layout…”).
+struct SavedLayout: Identifiable, Codable, Sendable {
+    var id = UUID()
+    var name: String
+    var tree: PaneNode
+    var weights: [UUID: [Double]]
+
+    /// Tree and sizes with new pane/split IDs, so applying it twice never reuses
+    /// IDs that other state (editor tabs per pane, stored sizes) still refers to.
+    func build() -> (PaneNode, [UUID: [Double]]) {
+        var newWeights: [UUID: [Double]] = [:]
+        func copy(_ node: PaneNode) -> PaneNode {
+            switch node {
+            case .leaf(let p):
+                return .leaf(InspectorPane(tab: p.tab))
+            case .split(let id, let axis, let children):
+                let new = UUID()
+                if let w = weights[id], w.count == children.count { newWeights[new] = w }
+                return .split(id: new, axis: axis, children: children.map(copy))
+            }
+        }
+        return (copy(tree), newWeights)
+    }
+}
