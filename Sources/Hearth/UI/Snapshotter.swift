@@ -92,11 +92,15 @@ enum Snapshotter {
             if let root = env["HEARTH_SNAPSHOT_SPECS_ROOT"] {
                 let specs = SpecLibrary.scan(root: root)
                 for spec in specs {
-                    for (name, size) in [("wide", CGSize(width: 900, height: 760)), ("narrow", CGSize(width: 460, height: 760))] {
-                        render(SpecsView(root: root, preloaded: specs, initialSpec: spec.id).environment(model), size: size, dark: true,
+                    for (name, size) in [("wide", CGSize(width: 900, height: 760)), ("narrow", CGSize(width: 460, height: 760)),
+                                         ("shot", CGSize(width: 560, height: 820))] {
+                        render(SpecsView(root: root, preloaded: specs, initialSpec: spec.id,
+                                         previewAgent: env["HEARTH_SNAPSHOT_SPECS_AGENT"] != nil).environment(model), size: size, dark: true,
                                to: dir.appendingPathComponent("specs-\(spec.slug)-\(name).png"))
                     }
                 }
+                render(NewSpecWizard(hasAgent: true, onCreate: { _ in }, onCancel: {}), size: CGSize(width: 540, height: 420), dark: true,
+                       to: dir.appendingPathComponent("specs-wizard.png"))
                 exit(0)
             }
             // HEARTH_SNAPSHOT_HIGHLIGHT=<term>[:<line>]: the active editor file with the term marked.

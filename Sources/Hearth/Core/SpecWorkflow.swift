@@ -136,6 +136,36 @@ enum SpecTasksParser {
     }
 }
 
+/// What a spec is about; decides how the requirements are framed.
+enum SpecKind: String, Codable, CaseIterable, Identifiable, Sendable {
+    case feature, bugfix, refactor
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .feature: String(localized: "Feature")
+        case .bugfix: String(localized: "Bugfix")
+        case .refactor: String(localized: "Refactoring")
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .feature: String(localized: "Something new: user stories and acceptance criteria.")
+        case .bugfix: String(localized: "Something broken: current and expected behaviour, cause, regression guard.")
+        case .refactor: String(localized: "Better structure, same behaviour: goals, limits, what must not change.")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .feature: "sparkles"
+        case .bugfix: "ladybug"
+        case .refactor: "arrow.triangle.2.circlepath"
+        }
+    }
+}
+
 /// Hearth's own record of a spec: name, idea and which document versions were approved.
 struct SpecRecord: Codable, Equatable, Sendable {
     var name: String
@@ -143,6 +173,33 @@ struct SpecRecord: Codable, Equatable, Sendable {
     var created = Date()
     /// Phase → SHA-256 of the document text at approval.
     var approved: [String: String] = [:]
+    var kind: SpecKind = .feature
+    /// Guided mode walks the user through each step; free mode shows everything at once.
+    var guided = true
+    /// Phase → ticked items of its review checklist.
+    var checks: [String: [Int]] = [:]
+
+    init(name: String, idea: String = "", created: Date = Date(), approved: [String: String] = [:],
+         kind: SpecKind = .feature, guided: Bool = true) {
+        self.name = name
+        self.idea = idea
+        self.created = created
+        self.approved = approved
+        self.kind = kind
+        self.guided = guided
+    }
+
+    // Older spec.json files lack the newer keys.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        idea = try c.decodeIfPresent(String.self, forKey: .idea) ?? ""
+        created = try c.decodeIfPresent(Date.self, forKey: .created) ?? Date()
+        approved = try c.decodeIfPresent([String: String].self, forKey: .approved) ?? [:]
+        kind = (try? c.decodeIfPresent(SpecKind.self, forKey: .kind)) ?? .feature
+        guided = try c.decodeIfPresent(Bool.self, forKey: .guided) ?? true
+        checks = try c.decodeIfPresent([String: [Int]].self, forKey: .checks) ?? [:]
+    }
 }
 
 /// A spec folder with its documents read from disk.
@@ -247,7 +304,7 @@ enum SpecLibrary {
     }
 
     /// Creates `.hearth/specs/<slug>/spec.json` (a free slug if the name is taken).
-    static func create(name: String, idea: String, root: String) throws -> Spec {
+    static func create(name: String, idea: String, kind: SpecKind = .feature, guided: Bool = true, root: String) throws -> Spec {
         let base = URL(fileURLWithPath: root).appendingPathComponent(specsDir)
         let stem = slug(name)
         var slug = stem
@@ -257,7 +314,7 @@ enum SpecLibrary {
         }
         let folder = base.appendingPathComponent(slug)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let record = SpecRecord(name: name.trimmingCharacters(in: .whitespacesAndNewlines), idea: idea)
+        let record = SpecRecord(name: name.trimmingCharacters(in: .whitespacesAndNewlines), idea: idea, kind: kind, guided: guided)
         try save(record, in: folder)
         return Spec(folder: folder, relativePath: specsDir + "/" + slug, record: record, documents: [:])
     }
@@ -285,6 +342,14 @@ enum SpecLibrary {
         let updated = SpecTasksParser.setting(text, line: task.line, done: done)
         guard updated != text else { return }
         try updated.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    /// Saves a changed record (mode, checklist) and returns the spec with it.
+    static func update(_ spec: Spec, _ change: (inout SpecRecord) -> Void) throws -> Spec {
+        var s = spec
+        change(&s.record)
+        try save(s.record, in: s.folder)
+        return s
     }
 
     private static func save(_ record: SpecRecord, in folder: URL) throws {
@@ -328,15 +393,46 @@ enum SpecPrompts {
         return s
     }
 
-    static func requirements(_ spec: Spec, steering: [String]) -> String {
+    private static func idea(_ spec: Spec) -> String {
+        spec.record.idea.isEmpty ? spec.name : spec.record.idea.replacingOccurrences(of: "\n", with: " ")
+    }
+
+    private static func requirementsFormat(_ spec: Spec) -> String {
+        let criteria = "numbered acceptance criteria in EARS notation (“WHEN … THEN the system SHALL …”, “IF … THEN the system SHALL …”, “WHILE … the system SHALL …”)"
+        return switch spec.record.kind {
+        case .feature:
+            "Structure: `# Requirements: \(spec.name)`, a short introduction, then `### Requirement N` sections, each with a user story (“As a …, I want …, so that …”) and \(criteria). Cover edge cases and errors, keep it implementation-free."
+        case .bugfix:
+            "Structure: `# Requirements: \(spec.name)`, then `## Current behaviour`, `## Expected behaviour`, `## Steps to reproduce` and `## Suspected cause` (from reading the code), then `### Requirement N` sections with \(criteria) for the fixed behaviour, including at least one regression criterion (“WHEN … THEN the system SHALL continue to …”)."
+        case .refactor:
+            "Structure: `# Requirements: \(spec.name)`, then `## Goals`, `## Constraints` and `## Out of scope`, then `### Requirement N` sections with \(criteria); state explicitly which behaviour SHALL NOT change and how that is verified."
+        }
+    }
+
+    static func requirements(_ spec: Spec, steering: [String], clarify: Bool = false) -> String {
+        let task = clarify
+            ? "Before you write anything, look at the existing code and ask me the questions you need answered (at most 5, numbered, in one message), then wait for my answers. After I answered, write `\(spec.path(.requirements))`."
+            : "Look at the existing code first, then write `\(spec.path(.requirements))`."
+        return """
+        We work spec-driven. \(context(spec, steering: steering)) The \(spec.record.kind.rawValue): \(idea(spec)) — \
+        \(task) \(requirementsFormat(spec)) End with a section `## Open questions` (empty if there are none). \
+        Only write this file, do not write design, tasks or code; then stop so I can review it.
         """
-        We work spec-driven. \(context(spec, steering: steering)) Write `\(spec.path(.requirements))` for this feature: \
-        \(spec.record.idea.isEmpty ? spec.name : spec.record.idea.replacingOccurrences(of: "\n", with: " ")) — \
-        Look at the existing code first. Structure: `# Requirements: \(spec.name)`, a short introduction, then \
-        `### Requirement N` sections, each with a user story (“As a …, I want …, so that …”) and numbered acceptance \
-        criteria in EARS notation (“WHEN … THEN the system SHALL …”, “IF … THEN …”, “WHILE …”). Cover edge cases \
-        and errors, keep it implementation-free. List open questions at the end. Only write this file, do not write \
-        design, tasks or code; then stop so I can review it.
+    }
+
+    /// Asks the agent to fix what the quality check found.
+    static func fix(_ finding: String, in phase: SpecPhase, of spec: Spec, steering: [String]) -> String {
+        """
+        \(context(spec, steering: steering)) A check of `\(spec.path(phase))` found: \(finding) — Please fix this in \
+        the document, keep its structure, and keep the other spec documents consistent. Do not change code; then stop.
+        """
+    }
+
+    static func answerQuestions(_ spec: Spec, steering: [String]) -> String {
+        """
+        \(context(spec, steering: steering)) `\(spec.path(.requirements))` lists open questions. Ask me them one at a \
+        time, wait for each answer, and work the answers into the requirements. Remove each answered question from \
+        the list. Do not change code.
         """
     }
 

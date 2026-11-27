@@ -24,6 +24,8 @@ final class AppModel {
     let search = SearchEverywhereStore()
     /// Agent hooks of the projects of running sessions.
     let hooks: AgentHooksEngine
+    /// What agents are doing for which spec (guided mode).
+    let specActivity = SpecActivity()
 
     /// The user's sandbox rules (domains, ports, folders, projects, credentials).
     private(set) var sandboxSettings = SandboxSettings.load()
