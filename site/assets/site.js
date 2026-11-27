@@ -442,4 +442,16 @@
     strokes.forEach((li, i) => setTimeout(() => li.classList.add("on"), 250 + i * 750));
     obs.disconnect();
   }, { threshold: .4 }).observe(document.querySelector("[data-strokes]"));
+
+  /* ---------- spec phases light up one after another ---------- */
+  const phases = [...document.querySelectorAll("[data-phases] li")];
+  const phaseList = document.querySelector("[data-phases]");
+  if (phaseList) {
+    if (reduce) phases.forEach((li) => li.classList.add("on"));
+    else new IntersectionObserver((entries, obs) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      phases.forEach((li, i) => setTimeout(() => li.classList.add("on"), 250 + i * 600));
+      obs.disconnect();
+    }, { threshold: .35 }).observe(phaseList);
+  }
 })();

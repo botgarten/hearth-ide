@@ -26,11 +26,12 @@
   <header class="top">
     <a class="mark" href="./" aria-label="Hearth IDE – home">
       <img src="assets/hearth-icon.webp" alt="" width="36" height="36">
-      Hearth IDE <span class="version">v0.5</span>
+      Hearth IDE <span class="version">v0.15</span>
     </a>
     <nav aria-label="Page sections">
       <a href="#ring">What’s blocked</a>
       <a href="#agents">Agents</a>
+      <a href="#specs">Specs &amp; hooks</a>
       <a href="#how">How it works</a>
       <a class="gh" href="https://github.com/botgarten/hearth-ide">GitHub</a>
       <a class="lang" href="de/" hreflang="de" lang="de">Deutsch</a>
@@ -53,7 +54,7 @@
         </div>
 
         <ul class="facts" aria-label="Key facts">
-          <li><b>v0.5</b> early release</li>
+          <li><b>v0.15</b> early release</li>
           <li>macOS <b>14+</b></li>
           <li><b>Apple Silicon</b></li>
           <li>License <b>MIT</b></li>
@@ -138,14 +139,46 @@
       </figure>
     </section>
 
+    <section id="specs" aria-labelledby="specs-h">
+      <div class="ember-light" style="left:-18rem;top:5rem" aria-hidden="true"></div>
+      <h2 id="specs-h">Specs first. <span class="lit">Then code.</span></h2>
+      <p class="section-lede">The spec mode takes a feature through four steps. Your agent writes each document, you read and approve it, and only then does the next step open. It works like Kiro, but with the agent you already pay for, inside the sandbox.</p>
+      <div class="spec">
+        <ol class="phases" data-phases>
+          <li><span class="file">requirements.md</span><div><h3>Requirements</h3><p>User stories with acceptance criteria in EARS notation: <code>WHEN … THEN the system SHALL …</code></p><span class="gate">you approve</span></div></li>
+          <li><span class="file">design.md</span><div><h3>Design</h3><p>Architecture, components, data, error handling and tests, based on the approved requirements.</p><span class="gate">you approve</span></div></li>
+          <li><span class="file">tasks.md</span><div><h3>Tasks</h3><p>Small coding steps, each linked to the criteria it covers.</p><span class="gate">you approve</span></div></li>
+          <li><span class="file">▶ run task</span><div><h3>Implementation</h3><p>The agent works through one task at a time and ticks it off. At the end it checks the code against every criterion.</p></div></li>
+        </ol>
+        <figure class="shot spec-shot">
+          <div class="shot-frame">
+            <img src="assets/hearth-specs.webp" width="920" height="800" loading="lazy" decoding="async"
+                 alt="The Specs pane: requirements, design and tasks approved, the implementation step at 2 of 6 tasks, each with its linked requirements and a run button.">
+          </div>
+          <figcaption>A real screenshot of the Specs pane. Edit an approved document and Hearth asks for another approval.</figcaption>
+        </figure>
+      </div>
+
+      <h3 class="hooks-title">Agent hooks tend the fire.</h3>
+      <p class="hooks-lede">When a turn ends, Hearth looks at what the agent changed and runs your hooks: a prompt for the agent, or a command in the sandbox.</p>
+      <ul class="hooks">
+        <li><span class="when">Agent saved <code>\.swift$</code></span><span class="then">“Update the tests for these files and run them.”</span></li>
+        <li><span class="when">Agent saved <code>\.tsx?$</code></span><span class="then"><code>npm run lint</code> in the sandbox. If it fails, the output goes back to the agent.</span></li>
+        <li><span class="when">Agent finished its turn</span><span class="then">“Review your diff for bugs, missing tests and leftovers.”</span></li>
+        <li><span class="when">Agent changed <code>requirements.md</code></span><span class="then">“Bring the design and the tasks back in line.”</span></li>
+      </ul>
+      <p class="side-note">Hooks can’t loop: a turn that a hook started never fires hooks. A hook file from a repository, or one the agent wrote, only runs after you allowed exactly that content. Specs and hooks live in the project as plain files, and Kiro’s <code>.kiro/specs</code> and <code>.kiro/hooks</code> are read too.</p>
+    </section>
+
     <section aria-labelledby="status-h">
-      <h2 id="status-h">Honest status: v0.5.</h2>
+      <h2 id="status-h">Honest status: v0.15.</h2>
       <p class="section-lede">Early, but usable. This is what works today:</p>
       <div class="status">
         <div>
           <h3>Works</h3>
           <ul>
             <li>Agents as a terminal in the chat area</li>
+            <li>Spec mode with approvals and agent hooks</li>
             <li>Inbox with status and notifications</li>
             <li>Build &amp; Deployment and Git in the sandbox</li>
             <li>Resume or start fresh – your choice</li>
