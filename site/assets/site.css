@@ -265,3 +265,30 @@ section h2 .lit { color: var(--flame); }
   .spec-duo .pin { font-size: .72rem; padding: .3rem .5rem; }
   .pin.doc, .pin.prog { display: none; }
 }
+
+/* ---------- 3D hero (WebGL) ---------- */
+.ring.is-3d > svg.stones, .ring.is-3d > canvas[data-fire] { display: none; }
+.ring.is-3d .hero3d { position: absolute; inset: -6% -8% -4%; width: 116%; height: 110%; display: block; touch-action: pan-y; -webkit-mask-image: radial-gradient(closest-side at 50% 54%, #000 0, #000 52%, rgba(0,0,0,.6) 72%, rgba(0,0,0,.18) 88%, transparent 100%); mask-image: radial-gradient(closest-side at 50% 54%, #000 0, #000 52%, rgba(0,0,0,.6) 72%, rgba(0,0,0,.18) 88%, transparent 100%); }
+.ring.is-3d .agent-name, .ring.is-3d .inside-label { left: 0; top: 0; z-index: 4; }
+.ring.is-3d .agent-name { transform: none; }
+.hero3d-labels { position: absolute; inset: -6% -8% -4%; pointer-events: none; z-index: 3; }
+.stone-label { position: absolute; left: 0; top: 0; pointer-events: auto; display: flex; flex-direction: column; align-items: center; gap: .2rem; padding: .28rem .55rem; border-radius: 9px; border: 1px solid rgba(255, 166, 43, .22); background: rgba(18, 12, 21, .62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: var(--ash); font: 600 .78rem/1.15 var(--mono); font-variant-ligatures: none; cursor: pointer; white-space: nowrap; box-shadow: 0 8px 18px -10px rgba(0, 0, 0, .9); transition: border-color .25s var(--ease), background .25s var(--ease), padding .25s var(--ease); }
+.stone-label b { font-weight: 600; color: #f4e6dc; }
+.stone-label .rule, .stone-label .line { display: none; }
+.stone-label .rule { font: 600 .68rem/1.3 var(--mono); color: var(--flame); }
+.stone-label .line { font: 400 .78rem/1.35 var(--body); color: var(--ash-2); white-space: normal; width: 15rem; text-align: center; }
+.stone-label.open { border-color: rgba(255, 166, 43, .75); background: rgba(29, 20, 32, .92); padding: .5rem .75rem; }
+.stone-label.open .rule, .stone-label.open .line { display: block; }
+.stone-label:focus-visible { outline: 2px solid var(--flame); outline-offset: 3px; }
+.stone-label .blocked { position: absolute; top: -.75rem; right: -.5rem; font: 700 .62rem/1 var(--body); text-transform: lowercase; color: var(--night); background: var(--ember); padding: .22rem .4rem; border-radius: 999px; opacity: 0; transform: scale(.6); pointer-events: none; }
+.stone-label.hit { border-color: var(--ember); box-shadow: 0 0 0 4px rgba(255, 90, 31, .18), 0 0 24px rgba(255, 90, 31, .55); }
+.stone-label.hit .blocked { animation: blocked 1.6s var(--ease) forwards; }
+@keyframes blocked { 0% { opacity: 0; transform: scale(.6); } 12% { opacity: 1; transform: scale(1.12); } 25% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; } }
+.hero3d-hint { position: absolute; left: 50%; bottom: -1.2rem; transform: translateX(-50%); z-index: 4; font-size: .82rem; color: var(--ash-3); white-space: nowrap; padding: .35rem .75rem; border-radius: 999px; border: 1px solid rgba(233, 223, 230, .14); background: rgba(14, 10, 18, .55); pointer-events: none; transition: opacity .6s var(--ease); }
+.hero3d-hint.gone { opacity: 0; }
+.ring.is-3d .rule-tip { display: none; }
+@media (max-width: 560px) {
+  .stone-label { font-size: .66rem; padding: .2rem .4rem; }
+  .ring.is-3d .inside-label { display: none; }
+  .hero3d-hint { font-size: .74rem; }
+}

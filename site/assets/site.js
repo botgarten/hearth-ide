@@ -146,60 +146,6 @@
     grads.body.setAttribute("x2", (-ux * w * .3).toFixed(1)); grads.body.setAttribute("y2", (-uy * h * .5).toFixed(1));
   }
 
-  /* ---------- the ring (real sandbox rules), slowly circling the fire ---------- */
-  const STONES = T.stones;
-  const ring = document.querySelector("[data-ring]");
-  const svg = document.querySelector("[data-stones]");
-  const svgBack = document.querySelector("[data-stones-back]");
-  const tip = document.querySelector("[data-tip]");
-  const rules = document.querySelector("[data-rules]");
-  const cx = 500, cy = 420, rx = 410, ry = 270, fireX = 500, fireY = 470;
-  const ORBIT = 80000;            // ms per turn
-  let pinned = null, orbit = 0;
-
-  const ringStones = STONES.map(([label, rule, line], i) => {
-    const font = 30;
-    const w = label.length * font * .62 + 84, h = 96 + rand(i + 3, 2) * 12;
-    const holder = document.createElementNS(NS, "g");
-    holder.setAttribute("data-stone-holder", "");
-    const st = { holder, label, rule, line, i, x: 0, y: 0, depth: 0, ...stone(holder, { w, h, seed: i + 2, label, font }) };
-    st.g = st.g;
-    const hold = () => { pinned = st; st.g.classList.add("hit"); showTip(st, true); };
-    const release = () => { if (pinned === st) pinned = null; st.g.classList.remove("hit"); hideTip(); };
-    holder.addEventListener("mouseenter", hold);
-    holder.addEventListener("mouseleave", release);
-    rules?.insertAdjacentHTML("beforeend", `<li>${label}: ${line}</li>`);
-    return st;
-  });
-
-  function placeStones() {
-    ringStones.forEach((st) => {
-      const a = -Math.PI / 2 + (st.i + .5) / ringStones.length * Math.PI * 2 + orbit;
-      st.x = cx + Math.cos(a) * rx; st.y = cy + Math.sin(a) * ry;
-      st.depth = (Math.sin(a) + 1) / 2;
-      const s = .66 + st.depth * .46;
-      st.holder.setAttribute("transform", `translate(${st.x.toFixed(1)} ${st.y.toFixed(1)}) scale(${s.toFixed(3)})`);
-      st.holder.style.opacity = (.55 + st.depth * .45).toFixed(2);
-      light(st, (fireX - st.x) / s, (fireY - st.y) / s);
-    });
-    // Far stones sit behind the flames, near ones in front; each layer drawn back to front.
-    const sorted = ringStones.slice().sort((a, b) => a.depth - b.depth);
-    sorted.forEach((st) => {
-      const layer = st.depth < .42 ? svgBack : svg;
-      if (st.holder.parentNode !== layer || layer.lastChild !== st.holder) layer.appendChild(st.holder);
-    });
-  }
-  placeStones();
-
-  let tipTimer;
-  function showTip(st, sticky) {
-    tip.innerHTML = `<b>${st.rule}</b>${st.line}`;
-    tip.classList.add("show");
-    clearTimeout(tipTimer);
-    if (!sticky) tipTimer = setTimeout(hideTip, 3600);
-  }
-  function hideTip() { tip.classList.remove("show"); }
-
   /* ---------- the stones that stay outside (below the hero) ---------- */
   document.querySelectorAll("[data-arc] li").forEach((li, i, all) => {
     const label = li.dataset.stone;
@@ -215,265 +161,336 @@
     li.querySelector("p").insertAdjacentHTML("afterbegin", `<span class="sr-only">${label}: </span>`);
   });
 
-  /* ---------- agent names in the fire ---------- */
-  const agentEl = document.querySelector("[data-agent]");
-  const AGENTS = ["claude", "codex", "copilot", "opencode", "gemini"];
-  let ai = 0;
-  if (!reduce) setInterval(() => {
-    agentEl.classList.add("swap");
-    setTimeout(() => { ai = (ai + 1) % AGENTS.length; agentEl.textContent = AGENTS[ai]; agentEl.classList.remove("swap"); }, 400);
-  }, 4200);
-
-  /* ---------- fire, smoke and sparks ---------- */
-  // The simulation runs in fixed 60 Hz steps, so it burns at the same pace on 60 and 120 Hz screens.
-  const canvas = document.querySelector("[data-fire]");
-  const ctx = canvas.getContext("2d");
-  const buf = document.createElement("canvas"), bctx = buf.getContext("2d");   // flames are summed here first
-  let W = 0, H = 0, visible = true, raf = 0;
-  function resize() {
-    const r = canvas.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
-    W = r.width; H = r.height; canvas.width = W * dpr; canvas.height = H * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    buf.width = Math.max(1, Math.round(W * dpr)); buf.height = Math.max(1, Math.round(H * dpr));
-    bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (reduce) drawStatic();
+  /* ---------- the hero: a real 3D campfire when WebGL is there, else the 2D ring ---------- */
+  const heroRing = document.querySelector("[data-ring]");
+  function webgl() {
+    try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch { return false; }
+  }
+  if (heroRing && webgl()) {
+    heroRing.classList.add("is-3d");
+    import("./hero3d.js")
+      .then((m) => m.start(heroRing, { stones: T.stones, reduce, lang: LANG }))
+      .catch((e) => { console.warn("3D hero failed, using 2D", e); heroRing.classList.remove("is-3d"); start2D(); });
+  } else if (heroRing) {
+    start2D();
   }
 
-  const flames = [], sparks = [], smoke = [];
-  const fx = () => W * 0.5, fy = () => H * (fireY / 860);
+  function start2D() {
+    /* ---------- the ring (real sandbox rules), slowly circling the fire ---------- */
+    const STONES = T.stones;
+    const ring = document.querySelector("[data-ring]");
+    const svg = document.querySelector("[data-stones]");
+    const svgBack = document.querySelector("[data-stones-back]");
+    const tip = document.querySelector("[data-tip]");
+    const rules = document.querySelector("[data-rules]");
+    const cx = 500, cy = 420, rx = 410, ry = 270, fireX = 500, fireY = 470;
+    const ORBIT = 80000;            // ms per turn
+    let pinned = null, orbit = 0;
 
-  // Logs and coals keep their shape; only their glow moves.
-  const R = (i) => rand(77, i);
-  const LOGS = [[-0.3, -1, .95], [0.28, 1, 1], [0.04, 0, .82]].map(([rot, side, len], k) => ({
-    rot, side, len,
-    cracks: Array.from({ length: 4 }, (_, i) => ({ at: -.36 + i * .2 + R(k * 9 + i) * .1, w: .05 + R(k * 9 + i + 4) * .05, ph: R(k * 9 + i + 7) * 6 })),
-  }));
-  const COALS = Array.from({ length: 18 }, (_, i) => ({ x: (R(i + 40) - .5) * .2, y: R(i + 60) * .028, r: .007 + R(i + 80) * .009, ph: R(i + 100) * 6 }));
-
-  function heatColor(h, a) {
-    // h: 1 = white-hot base, 0 = dark red tip
-    const stops = [[0, 120, 16, 24], [.3, 214, 52, 22], [.55, 255, 112, 26], [.8, 255, 170, 58], [1, 255, 222, 150]];
-    let i = 1; while (i < stops.length - 1 && h > stops[i][0]) i++;
-    const [p0, r0, g0, b0] = stops[i - 1], [p1, r1, g1, b1] = stops[i], t = Math.min(1, Math.max(0, (h - p0) / (p1 - p0)));
-    return `rgba(${(r0 + (r1 - r0) * t) | 0},${(g0 + (g1 - g0) * t) | 0},${(b0 + (b1 - b0) * t) | 0},${a.toFixed(3)})`;
-  }
-
-  function drawBed(time) {
-    const x = fx(), y = fy() + H * .025;
-    ctx.globalCompositeOperation = "lighter";
-    COALS.forEach((c) => {
-      const glow = .45 + .35 * Math.sin(time * .0021 + c.ph) * flick;
-      const r = c.r * W;
-      const g = ctx.createRadialGradient(x + c.x * W, y + c.y * W, 0, x + c.x * W, y + c.y * W, r * 2.2);
-      g.addColorStop(0, heatColor(.55 + glow * .3, .9 * glow)); g.addColorStop(.45, heatColor(.3, .45 * glow)); g.addColorStop(1, "rgba(120,16,24,0)");
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x + c.x * W, y + c.y * W, r * 2.2, 0, Math.PI * 2); ctx.fill();
+    const ringStones = STONES.map(([label, rule, line], i) => {
+      const font = 30;
+      const w = label.length * font * .62 + 84, h = 96 + rand(i + 3, 2) * 12;
+      const holder = document.createElementNS(NS, "g");
+      holder.setAttribute("data-stone-holder", "");
+      const st = { holder, label, rule, line, i, x: 0, y: 0, depth: 0, ...stone(holder, { w, h, seed: i + 2, label, font }) };
+      st.g = st.g;
+      const hold = () => { pinned = st; st.g.classList.add("hit"); showTip(st, true); };
+      const release = () => { if (pinned === st) pinned = null; st.g.classList.remove("hit"); hideTip(); };
+      holder.addEventListener("mouseenter", hold);
+      holder.addEventListener("mouseleave", release);
+      rules?.insertAdjacentHTML("beforeend", `<li>${label}: ${line}</li>`);
+      return st;
     });
-    ctx.globalCompositeOperation = "source-over";
-  }
 
-  function drawLogs(time) {
-    const x = fx(), y = fy() + H * .02, T = W * .024;
-    LOGS.forEach((log) => {
-      const L = W * .18 * log.len;
-      ctx.save(); ctx.translate(x + log.side * W * .016, y); ctx.rotate(log.rot);
-      // bark: lit from the flames above, charred underneath
-      const g = ctx.createLinearGradient(0, -T / 2, 0, T / 2);
-      g.addColorStop(0, "#6a3524"); g.addColorStop(.25, "#3b1c15"); g.addColorStop(.7, "#1a0d0d"); g.addColorStop(1, "#0b0608");
-      ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(-L / 2, -T / 2, L, T, T * .42); ctx.fill();
-      // bark grain
-      ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = Math.max(.6, T * .06);
-      for (let i = 0; i < 3; i++) {
-        const yy = -T * .25 + i * T * .22;
-        ctx.beginPath(); ctx.moveTo(-L * .46, yy); ctx.bezierCurveTo(-L * .15, yy - T * .08, L * .15, yy + T * .08, L * .46, yy); ctx.stroke();
-      }
-      // sawn ends with rings
-      [-1, 1].forEach((e) => {
-        ctx.fillStyle = "#4a2a1e"; ctx.beginPath(); ctx.ellipse(e * L / 2, 0, T * .2, T * .48, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "rgba(20,8,8,.6)"; ctx.lineWidth = .7; ctx.beginPath(); ctx.ellipse(e * L / 2, 0, T * .1, T * .26, 0, 0, Math.PI * 2); ctx.stroke();
+    function placeStones() {
+      ringStones.forEach((st) => {
+        const a = -Math.PI / 2 + (st.i + .5) / ringStones.length * Math.PI * 2 + orbit;
+        st.x = cx + Math.cos(a) * rx; st.y = cy + Math.sin(a) * ry;
+        st.depth = (Math.sin(a) + 1) / 2;
+        const s = .66 + st.depth * .46;
+        st.holder.setAttribute("transform", `translate(${st.x.toFixed(1)} ${st.y.toFixed(1)}) scale(${s.toFixed(3)})`);
+        st.holder.style.opacity = (.55 + st.depth * .45).toFixed(2);
+        light(st, (fireX - st.x) / s, (fireY - st.y) / s);
       });
-      // glowing cracks in the charcoal
+      // Far stones sit behind the flames, near ones in front; each layer drawn back to front.
+      const sorted = ringStones.slice().sort((a, b) => a.depth - b.depth);
+      sorted.forEach((st) => {
+        const layer = st.depth < .42 ? svgBack : svg;
+        if (st.holder.parentNode !== layer || layer.lastChild !== st.holder) layer.appendChild(st.holder);
+      });
+    }
+    placeStones();
+
+    let tipTimer;
+    function showTip(st, sticky) {
+      tip.innerHTML = `<b>${st.rule}</b>${st.line}`;
+      tip.classList.add("show");
+      clearTimeout(tipTimer);
+      if (!sticky) tipTimer = setTimeout(hideTip, 3600);
+    }
+    function hideTip() { tip.classList.remove("show"); }
+
+    /* ---------- agent names in the fire ---------- */
+    const agentEl = document.querySelector("[data-agent]");
+    const AGENTS = ["claude", "codex", "copilot", "opencode", "gemini"];
+    let ai = 0;
+    if (!reduce) setInterval(() => {
+      agentEl.classList.add("swap");
+      setTimeout(() => { ai = (ai + 1) % AGENTS.length; agentEl.textContent = AGENTS[ai]; agentEl.classList.remove("swap"); }, 400);
+    }, 4200);
+
+    /* ---------- fire, smoke and sparks ---------- */
+    // The simulation runs in fixed 60 Hz steps, so it burns at the same pace on 60 and 120 Hz screens.
+    const canvas = document.querySelector("[data-fire]");
+    const ctx = canvas.getContext("2d");
+    const buf = document.createElement("canvas"), bctx = buf.getContext("2d");   // flames are summed here first
+    let W = 0, H = 0, visible = true, raf = 0;
+    function resize() {
+      const r = canvas.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
+      W = r.width; H = r.height; canvas.width = W * dpr; canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      buf.width = Math.max(1, Math.round(W * dpr)); buf.height = Math.max(1, Math.round(H * dpr));
+      bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (reduce) drawStatic();
+    }
+
+    const flames = [], sparks = [], smoke = [];
+    const fx = () => W * 0.5, fy = () => H * (fireY / 860);
+
+    // Logs and coals keep their shape; only their glow moves.
+    const R = (i) => rand(77, i);
+    const LOGS = [[-0.3, -1, .95], [0.28, 1, 1], [0.04, 0, .82]].map(([rot, side, len], k) => ({
+      rot, side, len,
+      cracks: Array.from({ length: 4 }, (_, i) => ({ at: -.36 + i * .2 + R(k * 9 + i) * .1, w: .05 + R(k * 9 + i + 4) * .05, ph: R(k * 9 + i + 7) * 6 })),
+    }));
+    const COALS = Array.from({ length: 18 }, (_, i) => ({ x: (R(i + 40) - .5) * .2, y: R(i + 60) * .028, r: .007 + R(i + 80) * .009, ph: R(i + 100) * 6 }));
+
+    function heatColor(h, a) {
+      // h: 1 = white-hot base, 0 = dark red tip
+      const stops = [[0, 120, 16, 24], [.3, 214, 52, 22], [.55, 255, 112, 26], [.8, 255, 170, 58], [1, 255, 222, 150]];
+      let i = 1; while (i < stops.length - 1 && h > stops[i][0]) i++;
+      const [p0, r0, g0, b0] = stops[i - 1], [p1, r1, g1, b1] = stops[i], t = Math.min(1, Math.max(0, (h - p0) / (p1 - p0)));
+      return `rgba(${(r0 + (r1 - r0) * t) | 0},${(g0 + (g1 - g0) * t) | 0},${(b0 + (b1 - b0) * t) | 0},${a.toFixed(3)})`;
+    }
+
+    function drawBed(time) {
+      const x = fx(), y = fy() + H * .025;
       ctx.globalCompositeOperation = "lighter";
-      log.cracks.forEach((c) => {
-        const a = (.35 + .4 * Math.sin(time * .0017 + c.ph)) * flick;
-        const cx0 = c.at * L, cw = c.w * L;
-        const cg = ctx.createLinearGradient(cx0 - cw, 0, cx0 + cw, 0);
-        cg.addColorStop(0, "rgba(255,90,31,0)"); cg.addColorStop(.5, heatColor(.62, Math.max(0, a))); cg.addColorStop(1, "rgba(255,90,31,0)");
-        ctx.strokeStyle = cg; ctx.lineWidth = Math.max(1, T * .12);
-        ctx.beginPath(); ctx.moveTo(cx0 - cw, -T * .3); ctx.lineTo(cx0 - cw * .3, -T * .12); ctx.lineTo(cx0 + cw * .2, -T * .28); ctx.lineTo(cx0 + cw, -T * .1); ctx.stroke();
+      COALS.forEach((c) => {
+        const glow = .45 + .35 * Math.sin(time * .0021 + c.ph) * flick;
+        const r = c.r * W;
+        const g = ctx.createRadialGradient(x + c.x * W, y + c.y * W, 0, x + c.x * W, y + c.y * W, r * 2.2);
+        g.addColorStop(0, heatColor(.55 + glow * .3, .9 * glow)); g.addColorStop(.45, heatColor(.3, .45 * glow)); g.addColorStop(1, "rgba(120,16,24,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x + c.x * W, y + c.y * W, r * 2.2, 0, Math.PI * 2); ctx.fill();
       });
       ctx.globalCompositeOperation = "source-over";
-      ctx.restore();
-    });
-  }
+    }
 
-  const FLAME = 1.4;   // flame size relative to the logs' original scale
-  function spawnFlame() {
-    // tongues: particles born on a few wandering columns; hotter in the middle
-    const column = (Math.random() * 7 | 0) - 3;
-    const centre = 1 - Math.abs(column) / 4;
-    const F = FLAME;
-    flames.push({ x: fx() + (column * W * .012 + (Math.random() - .5) * W * .014) * F, y: fy() - H * .005,
-      vx: (-column * .05 + (Math.random() - .5) * .2) * F, vy: -(1.3 + Math.random() * 1.6) * (.8 + centre * .4) * F, life: 0,
-      max: 30 + Math.random() * 36 * (.6 + centre * .6), r: W * (0.009 + Math.random() * 0.014) * (.8 + centre * .4) * F,
-      heat: .62 + centre * .3 + Math.random() * .08, col: column, wob: Math.random() * 6 });
-  }
-  function spawnSpark(target) {
-    const s = { x: fx() + (Math.random() - .5) * W * .05, y: fy() - H * .08, life: 0, max: 140 + Math.random() * 80, target: null };
-    if (target) {
-      s.target = target;
-      const k = W / 1000, dx = target.x * k - s.x, dy = target.y * k - s.y, t = 60 + Math.random() * 30;
-      s.vx = dx / t; s.vy = dy / t - 1.2; s.g = 2.4 / t;
-    } else { s.vx = (Math.random() - .5) * 1.2; s.vy = -(1.5 + Math.random() * 1.8); s.g = 0; }
-    sparks.push(s);
-  }
+    function drawLogs(time) {
+      const x = fx(), y = fy() + H * .02, T = W * .024;
+      LOGS.forEach((log) => {
+        const L = W * .18 * log.len;
+        ctx.save(); ctx.translate(x + log.side * W * .016, y); ctx.rotate(log.rot);
+        // bark: lit from the flames above, charred underneath
+        const g = ctx.createLinearGradient(0, -T / 2, 0, T / 2);
+        g.addColorStop(0, "#6a3524"); g.addColorStop(.25, "#3b1c15"); g.addColorStop(.7, "#1a0d0d"); g.addColorStop(1, "#0b0608");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(-L / 2, -T / 2, L, T, T * .42); ctx.fill();
+        // bark grain
+        ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = Math.max(.6, T * .06);
+        for (let i = 0; i < 3; i++) {
+          const yy = -T * .25 + i * T * .22;
+          ctx.beginPath(); ctx.moveTo(-L * .46, yy); ctx.bezierCurveTo(-L * .15, yy - T * .08, L * .15, yy + T * .08, L * .46, yy); ctx.stroke();
+        }
+        // sawn ends with rings
+        [-1, 1].forEach((e) => {
+          ctx.fillStyle = "#4a2a1e"; ctx.beginPath(); ctx.ellipse(e * L / 2, 0, T * .2, T * .48, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = "rgba(20,8,8,.6)"; ctx.lineWidth = .7; ctx.beginPath(); ctx.ellipse(e * L / 2, 0, T * .1, T * .26, 0, 0, Math.PI * 2); ctx.stroke();
+        });
+        // glowing cracks in the charcoal
+        ctx.globalCompositeOperation = "lighter";
+        log.cracks.forEach((c) => {
+          const a = (.35 + .4 * Math.sin(time * .0017 + c.ph)) * flick;
+          const cx0 = c.at * L, cw = c.w * L;
+          const cg = ctx.createLinearGradient(cx0 - cw, 0, cx0 + cw, 0);
+          cg.addColorStop(0, "rgba(255,90,31,0)"); cg.addColorStop(.5, heatColor(.62, Math.max(0, a))); cg.addColorStop(1, "rgba(255,90,31,0)");
+          ctx.strokeStyle = cg; ctx.lineWidth = Math.max(1, T * .12);
+          ctx.beginPath(); ctx.moveTo(cx0 - cw, -T * .3); ctx.lineTo(cx0 - cw * .3, -T * .12); ctx.lineTo(cx0 + cw * .2, -T * .28); ctx.lineTo(cx0 + cw, -T * .1); ctx.stroke();
+        });
+        ctx.globalCompositeOperation = "source-over";
+        ctx.restore();
+      });
+    }
 
-  let step = 0, flick = 1, nextHit = 1500, simTime = 0;
-  // one 60 Hz simulation step
-  function simulate() {
-    step++; simTime += 1000 / 60;
-    if (!pinned) orbit += Math.PI * 2 / (ORBIT / (1000 / 60));
-    flick += ((0.75 + Math.random() * .5) - flick) * .14;
-    for (let i = 0; i < 10; i++) spawnFlame();
-    if (step % 4 === 0) smoke.push({ x: fx() + (Math.random() - .5) * W * .04, y: fy() - H * .22, vx: (Math.random() - .5) * .3, vy: -(.45 + Math.random() * .45), life: 0, max: 170, r: W * .03 });
-    if (step % 10 === 0) spawnSpark(null);
-    if (simTime > nextHit) {
-      nextHit = simTime + 5000 + Math.random() * 2000;
-      const visibleStones = ringStones.filter((st) => st.depth > .45);
-      if (!pinned && visibleStones.length) spawnSpark(visibleStones[(Math.random() * visibleStones.length) | 0]);
+    const FLAME = 1.4;   // flame size relative to the logs' original scale
+    function spawnFlame() {
+      // tongues: particles born on a few wandering columns; hotter in the middle
+      const column = (Math.random() * 7 | 0) - 3;
+      const centre = 1 - Math.abs(column) / 4;
+      const F = FLAME;
+      flames.push({ x: fx() + (column * W * .012 + (Math.random() - .5) * W * .014) * F, y: fy() - H * .005,
+        vx: (-column * .05 + (Math.random() - .5) * .2) * F, vy: -(1.3 + Math.random() * 1.6) * (.8 + centre * .4) * F, life: 0,
+        max: 30 + Math.random() * 36 * (.6 + centre * .6), r: W * (0.009 + Math.random() * 0.014) * (.8 + centre * .4) * F,
+        heat: .62 + centre * .3 + Math.random() * .08, col: column, wob: Math.random() * 6 });
     }
-    const t0 = simTime * .004;
-    for (let i = flames.length - 1; i >= 0; i--) {
-      const p = flames[i];
-      p.life++;
-      // a shared draught bends whole tongues, not single particles
-      const age = p.life / p.max;
-      const draught = (Math.sin(p.y * .03 + t0 + p.col * 1.9) * .5 + Math.sin(t0 * .7 + p.wob) * .15) * (1 + age * 1.6);
-      p.x += p.vx + draught; p.y += p.vy; p.vy *= 1.008;
-      p.vx += (fx() - p.x) * .0018;
-      if (p.life >= p.max) flames.splice(i, 1);
+    function spawnSpark(target) {
+      const s = { x: fx() + (Math.random() - .5) * W * .05, y: fy() - H * .08, life: 0, max: 140 + Math.random() * 80, target: null };
+      if (target) {
+        s.target = target;
+        const k = W / 1000, dx = target.x * k - s.x, dy = target.y * k - s.y, t = 60 + Math.random() * 30;
+        s.vx = dx / t; s.vy = dy / t - 1.2; s.g = 2.4 / t;
+      } else { s.vx = (Math.random() - .5) * 1.2; s.vy = -(1.5 + Math.random() * 1.8); s.g = 0; }
+      sparks.push(s);
     }
-    for (let i = smoke.length - 1; i >= 0; i--) {
-      const p = smoke[i]; p.life++; p.x += p.vx + Math.sin(p.life * .03) * .25; p.y += p.vy; p.r += .25;
-      if (p.life >= p.max) smoke.splice(i, 1);
-    }
-    for (let i = sparks.length - 1; i >= 0; i--) {
-      const s = sparks[i];
-      s.life++; s.vy += s.g; s.x += s.vx + (s.target ? 0 : Math.sin(s.life * .08) * .4); s.y += s.vy;
-      let dead = s.life > s.max;
-      if (s.target) {
-        const k = W / 1000, dx = s.target.x * k - s.x, dy = s.target.y * k - s.y;
-        if (dx * dx + dy * dy < (34 * k) ** 2 || s.life > 120) {
-          dead = true;
-          const tg = s.target.g;
-          tg.classList.remove("hit"); void tg.getBBox(); tg.classList.add("hit");
-          setTimeout(() => { if (pinned?.g !== tg) tg.classList.remove("hit"); }, 900);
-          if (!pinned) showTip(s.target, false);
-          // blocked: the spark breaks on the stone and bounces back towards the fire
-          const bx = fx() - s.x, by = fy() - s.y, bl = Math.hypot(bx, by) || 1;
-          for (let j = 0; j < 9; j++) {
-            const sp = .8 + Math.random() * 1.8;
-            sparks.push({ x: s.x, y: s.y, vx: bx / bl * sp + (Math.random() - .5) * 1.6, vy: by / bl * sp - Math.random() * 1.2,
-                          g: .05, life: 0, max: 20 + Math.random() * 16, target: null, ember: true });
+
+    let step = 0, flick = 1, nextHit = 1500, simTime = 0;
+    // one 60 Hz simulation step
+    function simulate() {
+      step++; simTime += 1000 / 60;
+      if (!pinned) orbit += Math.PI * 2 / (ORBIT / (1000 / 60));
+      flick += ((0.75 + Math.random() * .5) - flick) * .14;
+      for (let i = 0; i < 10; i++) spawnFlame();
+      if (step % 4 === 0) smoke.push({ x: fx() + (Math.random() - .5) * W * .04, y: fy() - H * .22, vx: (Math.random() - .5) * .3, vy: -(.45 + Math.random() * .45), life: 0, max: 170, r: W * .03 });
+      if (step % 10 === 0) spawnSpark(null);
+      if (simTime > nextHit) {
+        nextHit = simTime + 5000 + Math.random() * 2000;
+        const visibleStones = ringStones.filter((st) => st.depth > .45);
+        if (!pinned && visibleStones.length) spawnSpark(visibleStones[(Math.random() * visibleStones.length) | 0]);
+      }
+      const t0 = simTime * .004;
+      for (let i = flames.length - 1; i >= 0; i--) {
+        const p = flames[i];
+        p.life++;
+        // a shared draught bends whole tongues, not single particles
+        const age = p.life / p.max;
+        const draught = (Math.sin(p.y * .03 + t0 + p.col * 1.9) * .5 + Math.sin(t0 * .7 + p.wob) * .15) * (1 + age * 1.6);
+        p.x += p.vx + draught; p.y += p.vy; p.vy *= 1.008;
+        p.vx += (fx() - p.x) * .0018;
+        if (p.life >= p.max) flames.splice(i, 1);
+      }
+      for (let i = smoke.length - 1; i >= 0; i--) {
+        const p = smoke[i]; p.life++; p.x += p.vx + Math.sin(p.life * .03) * .25; p.y += p.vy; p.r += .25;
+        if (p.life >= p.max) smoke.splice(i, 1);
+      }
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        const s = sparks[i];
+        s.life++; s.vy += s.g; s.x += s.vx + (s.target ? 0 : Math.sin(s.life * .08) * .4); s.y += s.vy;
+        let dead = s.life > s.max;
+        if (s.target) {
+          const k = W / 1000, dx = s.target.x * k - s.x, dy = s.target.y * k - s.y;
+          if (dx * dx + dy * dy < (34 * k) ** 2 || s.life > 120) {
+            dead = true;
+            const tg = s.target.g;
+            tg.classList.remove("hit"); void tg.getBBox(); tg.classList.add("hit");
+            setTimeout(() => { if (pinned?.g !== tg) tg.classList.remove("hit"); }, 900);
+            if (!pinned) showTip(s.target, false);
+            // blocked: the spark breaks on the stone and bounces back towards the fire
+            const bx = fx() - s.x, by = fy() - s.y, bl = Math.hypot(bx, by) || 1;
+            for (let j = 0; j < 9; j++) {
+              const sp = .8 + Math.random() * 1.8;
+              sparks.push({ x: s.x, y: s.y, vx: bx / bl * sp + (Math.random() - .5) * 1.6, vy: by / bl * sp - Math.random() * 1.2,
+                            g: .05, life: 0, max: 20 + Math.random() * 16, target: null, ember: true });
+            }
           }
         }
+        if (dead) sparks.splice(i, 1);
       }
-      if (dead) sparks.splice(i, 1);
     }
-  }
 
-  function render() {
-    if (!reduce) placeStones();
-    ctx.clearRect(0, 0, W, H);
-    root.style.setProperty("--flicker", flick.toFixed(2));
-    const floor = ctx.createRadialGradient(fx(), fy() + H * .02, 0, fx(), fy() + H * .02, W * .38);
-    floor.addColorStop(0, `rgba(255,90,31,${(.24 * flick).toFixed(3)})`); floor.addColorStop(.5, `rgba(196,22,28,${(.08 * flick).toFixed(3)})`); floor.addColorStop(1, "rgba(196,22,28,0)");
-    ctx.fillStyle = floor; ctx.beginPath(); ctx.ellipse(fx(), fy() + H * .02, W * .38, H * .22, 0, 0, Math.PI * 2); ctx.fill();
+    function render() {
+      if (!reduce) placeStones();
+      ctx.clearRect(0, 0, W, H);
+      root.style.setProperty("--flicker", flick.toFixed(2));
+      const floor = ctx.createRadialGradient(fx(), fy() + H * .02, 0, fx(), fy() + H * .02, W * .38);
+      floor.addColorStop(0, `rgba(255,90,31,${(.24 * flick).toFixed(3)})`); floor.addColorStop(.5, `rgba(196,22,28,${(.08 * flick).toFixed(3)})`); floor.addColorStop(1, "rgba(196,22,28,0)");
+      ctx.fillStyle = floor; ctx.beginPath(); ctx.ellipse(fx(), fy() + H * .02, W * .38, H * .22, 0, 0, Math.PI * 2); ctx.fill();
 
-    // smoke drifts up and fades into the night
-    smoke.forEach((p) => {
-      const t = p.life / p.max;
-      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
-      const fade = Math.min(1, Math.max(0, (p.y - H * .12) / (H * .25)));
-      g.addColorStop(0, `rgba(96,68,72,${(.11 * Math.sin(t * Math.PI) * fade).toFixed(3)})`); g.addColorStop(1, "rgba(96,68,72,0)");
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
-    });
+      // smoke drifts up and fades into the night
+      smoke.forEach((p) => {
+        const t = p.life / p.max;
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+        const fade = Math.min(1, Math.max(0, (p.y - H * .12) / (H * .25)));
+        g.addColorStop(0, `rgba(96,68,72,${(.11 * Math.sin(t * Math.PI) * fade).toFixed(3)})`); g.addColorStop(1, "rgba(96,68,72,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      });
 
-    // the fire itself is drawn larger around its base point
-    const LS = 1.2;
-    ctx.save();
-    ctx.translate(fx(), fy()); ctx.scale(LS, LS); ctx.translate(-fx(), -fy());
-    drawBed(simTime);
-    drawLogs(simTime);
-    ctx.restore();
-    ctx.save();
+      // the fire itself is drawn larger around its base point
+      const LS = 1.2;
+      ctx.save();
+      ctx.translate(fx(), fy()); ctx.scale(LS, LS); ctx.translate(-fx(), -fy());
+      drawBed(simTime);
+      drawLogs(simTime);
+      ctx.restore();
+      ctx.save();
 
-    // flames: stretched tongues summed into a buffer, then laid on twice:
-    // blurred for the glow, sharp for the licks
-    bctx.clearRect(0, 0, W, H);
-    bctx.globalCompositeOperation = "lighter";
-    flames.forEach((p) => {
-      const t = p.life / p.max;
-      const rad = p.r * (1 - t * .75);
-      const stretch = 1.9 + t * 2.6;
-      const heat = Math.max(0, p.heat * (1 - t * 1.05));
-      const a = Math.sin(Math.min(1, t * 6) * Math.PI / 2) * (1 - t) * .15;
-      bctx.save(); bctx.translate(p.x, p.y); bctx.scale(1, stretch);
-      const g = bctx.createRadialGradient(0, 0, 0, 0, 0, rad);
-      g.addColorStop(0, heatColor(heat, a)); g.addColorStop(.6, heatColor(heat * .8, a * .45)); g.addColorStop(1, heatColor(heat * .6, 0));
-      bctx.fillStyle = g; bctx.beginPath(); bctx.arc(0, 0, rad, 0, Math.PI * 2); bctx.fill();
-      bctx.restore();
-    });
-    // white-hot heart at the base
-    const core = bctx.createRadialGradient(fx(), fy() - H * .04, 0, fx(), fy() - H * .04, W * .07);
-    core.addColorStop(0, `rgba(255,226,170,${(.13 * flick).toFixed(3)})`); core.addColorStop(1, "rgba(255,170,60,0)");
-    bctx.fillStyle = core; bctx.beginPath(); bctx.ellipse(fx(), fy() - H * .04, W * .07, W * .1, 0, 0, Math.PI * 2); bctx.fill();
-    bctx.globalCompositeOperation = "source-over";
+      // flames: stretched tongues summed into a buffer, then laid on twice:
+      // blurred for the glow, sharp for the licks
+      bctx.clearRect(0, 0, W, H);
+      bctx.globalCompositeOperation = "lighter";
+      flames.forEach((p) => {
+        const t = p.life / p.max;
+        const rad = p.r * (1 - t * .75);
+        const stretch = 1.9 + t * 2.6;
+        const heat = Math.max(0, p.heat * (1 - t * 1.05));
+        const a = Math.sin(Math.min(1, t * 6) * Math.PI / 2) * (1 - t) * .15;
+        bctx.save(); bctx.translate(p.x, p.y); bctx.scale(1, stretch);
+        const g = bctx.createRadialGradient(0, 0, 0, 0, 0, rad);
+        g.addColorStop(0, heatColor(heat, a)); g.addColorStop(.6, heatColor(heat * .8, a * .45)); g.addColorStop(1, heatColor(heat * .6, 0));
+        bctx.fillStyle = g; bctx.beginPath(); bctx.arc(0, 0, rad, 0, Math.PI * 2); bctx.fill();
+        bctx.restore();
+      });
+      // white-hot heart at the base
+      const core = bctx.createRadialGradient(fx(), fy() - H * .04, 0, fx(), fy() - H * .04, W * .07);
+      core.addColorStop(0, `rgba(255,226,170,${(.13 * flick).toFixed(3)})`); core.addColorStop(1, "rgba(255,170,60,0)");
+      bctx.fillStyle = core; bctx.beginPath(); bctx.ellipse(fx(), fy() - H * .04, W * .07, W * .1, 0, 0, Math.PI * 2); bctx.fill();
+      bctx.globalCompositeOperation = "source-over";
 
-    ctx.globalCompositeOperation = "lighter";
-    ctx.save();
-    ctx.filter = `blur(${Math.max(4, W * .014).toFixed(1)}px)`;
-    ctx.globalAlpha = .7; ctx.drawImage(buf, 0, 0, W, H);
-    ctx.filter = "none"; ctx.globalAlpha = 1; ctx.drawImage(buf, 0, 0, W, H);
-    ctx.restore();
-    ctx.restore();
-    ctx.globalCompositeOperation = "lighter";
+      ctx.globalCompositeOperation = "lighter";
+      ctx.save();
+      ctx.filter = `blur(${Math.max(4, W * .014).toFixed(1)}px)`;
+      ctx.globalAlpha = .7; ctx.drawImage(buf, 0, 0, W, H);
+      ctx.filter = "none"; ctx.globalAlpha = 1; ctx.drawImage(buf, 0, 0, W, H);
+      ctx.restore();
+      ctx.restore();
+      ctx.globalCompositeOperation = "lighter";
 
-    sparks.forEach((s) => {
-      const t = s.life / s.max;
-      const a = s.target ? .95 : (1 - t) * .9;
-      ctx.strokeStyle = `rgba(255,${s.ember ? 120 : 196},${s.ember ? 40 : 96},${a.toFixed(3)})`;
-      ctx.lineWidth = s.target ? 2.2 : 1.3; ctx.lineCap = "round";
-      // a short tail along the flight path: a glowing spark, not a dot
-      ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - s.vx * .9, s.y - s.vy * .9); ctx.stroke();
-    });
-    ctx.globalCompositeOperation = "source-over";
-  }
+      sparks.forEach((s) => {
+        const t = s.life / s.max;
+        const a = s.target ? .95 : (1 - t) * .9;
+        ctx.strokeStyle = `rgba(255,${s.ember ? 120 : 196},${s.ember ? 40 : 96},${a.toFixed(3)})`;
+        ctx.lineWidth = s.target ? 2.2 : 1.3; ctx.lineCap = "round";
+        // a short tail along the flight path: a glowing spark, not a dot
+        ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - s.vx * .9, s.y - s.vy * .9); ctx.stroke();
+      });
+      ctx.globalCompositeOperation = "source-over";
+    }
 
-  function drawStatic() {
-    flames.length = sparks.length = smoke.length = 0; step = 0; simTime = 0;
-    for (let i = 0; i < 120; i++) simulate();
-    sparks.length = 0;
-    render();
-  }
+    function drawStatic() {
+      flames.length = sparks.length = smoke.length = 0; step = 0; simTime = 0;
+      for (let i = 0; i < 120; i++) simulate();
+      sparks.length = 0;
+      render();
+    }
 
-  let last = 0, acc = 0;
-  function tick(now) {
-    raf = 0;
-    if (!visible) { last = 0; return; }
-    acc += last ? Math.min(now - last, 100) : 1000 / 60; last = now;
-    let n = 0;
-    while (acc >= 1000 / 60 && n < 4) { simulate(); acc -= 1000 / 60; n++; }
-    if (n === 4) acc = 0;
-    render();
-    raf = requestAnimationFrame(tick);
-  }
+    let last = 0, acc = 0;
+    function tick(now) {
+      raf = 0;
+      if (!visible) { last = 0; return; }
+      acc += last ? Math.min(now - last, 100) : 1000 / 60; last = now;
+      let n = 0;
+      while (acc >= 1000 / 60 && n < 4) { simulate(); acc -= 1000 / 60; n++; }
+      if (n === 4) acc = 0;
+      render();
+      raf = requestAnimationFrame(tick);
+    }
 
-  resize();
-  addEventListener("resize", resize);
-  if (!reduce) {
-    new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible && !raf) raf = requestAnimationFrame(tick); }).observe(ring);
-    document.addEventListener("visibilitychange", () => { visible = !document.hidden; if (visible && !raf) raf = requestAnimationFrame(tick); });
-    raf = requestAnimationFrame(tick);
+    resize();
+    addEventListener("resize", resize);
+    if (!reduce) {
+      new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible && !raf) raf = requestAnimationFrame(tick); }).observe(ring);
+      document.addEventListener("visibilitychange", () => { visible = !document.hidden; if (visible && !raf) raf = requestAnimationFrame(tick); });
+      raf = requestAnimationFrame(tick);
+    }
+
   }
 
   /* ---------- three strokes ignite in order ---------- */

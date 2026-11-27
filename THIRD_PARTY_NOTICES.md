@@ -10,6 +10,7 @@ Hearth IDE bundles or links the following open-source components.
 | [nono](https://github.com/nolabs-ai/nono) v0.80.0 (`Contents/Helpers/nono`, unverändert) | Sandbox | Apache-2.0 |
 | [monaco-editor](https://github.com/microsoft/monaco-editor) 0.52.2 (`Resources/monaco`, fetched by `scripts/fetch-monaco.sh`, unverändert und auf die genutzten Sprachen gekürzt) | code editor (VS Code) | MIT; includes the TypeScript language service (Apache-2.0), see `Resources/monaco/ThirdPartyNotices.txt` |
 | [mermaid](https://github.com/mermaid-js/mermaid) 11.17.2 (`Resources/mermaid.min.js`) | offline diagram rendering | MIT |
+| [three.js](https://github.com/mrdoob/three.js) r170 (`site/assets/lib/three.module.min.js`, landing page only, unverändert) | 3D campfire in the website hero | MIT, see `site/assets/lib/three.LICENSE.txt` |
 
 Indirect build dependencies resolved by SwiftPM (swift-argument-parser, swift-png, …)
 are licensed under Apache-2.0. The full license texts ship with each package.
