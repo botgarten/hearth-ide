@@ -1,6 +1,6 @@
 # Hearth IDE – Änderungen
 
-## Unveröffentlicht
+## 0.16.0 · 2026-11-27
 
 - **Spec-Modus: geführt oder frei.** Jede Spec läuft wahlweise **geführt** oder **frei** (Umschalter oben im Bereich, jederzeit änderbar). Geführt zeigt eine Reise-Leiste Anforderungen → Design → Aufgaben → Umsetzung im Hearth-Flammenstil und darunter immer genau den nächsten Schritt: was du bekommst, der Start-Knopf, der **Live-Status des Agenten** („Der Agent schreibt das Design… arbeitet seit 1:42“, „Der Agent wartet auf dich – im Chat antworten“), dann die Durchsicht mit **Qualitätsprüfung**, Dokumentvorschau und einer **Checkliste**, die vor der Freigabe abgehakt sein will. In der Umsetzung: Fortschrittsring, „Als Nächstes“-Karte mit den erfüllten Kriterien, Aufgaben und Abdeckung; am Ende eine Abschlusskarte mit Statistik und „Gegen die Anforderungen prüfen“.
 - **Qualitätsprüfung der Spec-Dokumente:** Hearth liest Anforderungen, Design und Aufgaben wie ein Reviewer: Kriterien ohne EARS-„SHALL“ (nicht testbar), Anforderungen ohne Akzeptanzkriterien oder User Story, offene Fragen, fehlende Design-Themen (Architektur, Daten, Fehler, Tests …), Anforderungen, die das Design nicht erwähnt, Kriterien ohne Aufgabe, Aufgaben mit unbekannten oder ohne Kriterien. Jeder Befund hat „Vom Agenten beheben lassen“; offene Fragen geht der Agent auf Wunsch einzeln mit dir durch. Im freien Modus steht die Prüfung als Badge in der Dokumentleiste.
