@@ -81,6 +81,24 @@ enum Snapshotter {
                 UserDefaults.standard.set(GitView.Section.changes.rawValue, forKey: "git.section")
                 exit(0)
             }
+            // HEARTH_SNAPSHOT_HOOKS_ROOT=<dir>: the Agent Hooks pane of that folder.
+            if let root = env["HEARTH_SNAPSHOT_HOOKS_ROOT"] {
+                model.hooks.reload(root)
+                render(HooksView(root: root).environment(model), size: CGSize(width: 520, height: 640), dark: true,
+                       to: dir.appendingPathComponent("hooks.png"))
+                exit(0)
+            }
+            // HEARTH_SNAPSHOT_SPECS_ROOT=<dir>: the Specs pane for every spec in the folder, narrow and wide.
+            if let root = env["HEARTH_SNAPSHOT_SPECS_ROOT"] {
+                let specs = SpecLibrary.scan(root: root)
+                for spec in specs {
+                    for (name, size) in [("wide", CGSize(width: 900, height: 760)), ("narrow", CGSize(width: 460, height: 760))] {
+                        render(SpecsView(root: root, preloaded: specs, initialSpec: spec.id).environment(model), size: size, dark: true,
+                               to: dir.appendingPathComponent("specs-\(spec.slug)-\(name).png"))
+                    }
+                }
+                exit(0)
+            }
             // HEARTH_SNAPSHOT_HIGHLIGHT=<term>[:<line>]: the active editor file with the term marked.
             if let raw = env["HEARTH_SNAPSHOT_HIGHLIGHT"],
                let file = env["HEARTH_SNAPSHOT_PREVIEW"]?.split(separator: ",").last.map({ URL(fileURLWithPath: String($0)) }) {

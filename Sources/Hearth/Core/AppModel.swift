@@ -22,6 +22,8 @@ final class AppModel {
     let changeRequests: ChangeRequestsStore
     /// Search Everywhere (double Shift).
     let search = SearchEverywhereStore()
+    /// Agent hooks of the projects of running sessions.
+    let hooks: AgentHooksEngine
 
     /// The user's sandbox rules (domains, ports, folders, projects, credentials).
     private(set) var sandboxSettings = SandboxSettings.load()
@@ -52,6 +54,23 @@ final class AppModel {
         changeRequests = ChangeRequestsStore(.init(detectRemote: { await CIRemote.of(repo: $0) },
                                                    loadCredentials: { await ci.load(for: $0) },
                                                    client: { ci.changeRequestAPI(for: $0, writing: $1) }))
+        let agents = agents
+        hooks = AgentHooksEngine(deps: .init(
+            runs: {
+                agents.runs.filter { $0.purpose == .session }.map {
+                    HookRunInfo(id: $0.id, directory: $0.directory, status: $0.status, isRunning: $0.isRunning,
+                                isSelected: $0.id == agents.selectedRunID)
+                }
+            },
+            send: { id, prompt in
+                guard let terminal = agents.run(id)?.terminal else { return }
+                terminal.send(txt: prompt)
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(150))
+                    terminal.send(txt: "\r")
+                }
+            },
+            runCommand: { root, command, timeout in await Self.runHookCommand(root: root, command: command, timeout: timeout) }))
         editor.workspaceRoot = { [weak self] in self?.workspaceRoot }
         editor.notify = { [weak self] in self?.toast($0) }
         layout.notify = { [weak self] in self?.toast($0) }
@@ -86,6 +105,7 @@ final class AppModel {
         showWelcome = agents.runningCount == 0 && Self.welcomeEnabled && Snapshotter.directory == nil
         DevelopmentAids.apply(to: self)
         if Snapshotter.directory == nil { zoomMonitor = TextZoomMonitor(model: self) }
+        if Snapshotter.directory == nil { hooks.start() }
     }
 
     /// Short-lived confirmation message.
@@ -193,6 +213,36 @@ final class AppModel {
         case .gitNetwork: "git-network:" + root
         case .gitLocal: "git-local:" + root
         case .agent(let kind): "agent-\(kind.rawValue):" + root
+        }
+    }
+
+    /// A hook's shell command, in Hearth's Build & Deployment sandbox for the folder.
+    nonisolated static func runHookCommand(root: String, command: String, timeout: Int?) async -> AgentHooksEngine.CommandResult {
+        guard SandboxManager.locateNono() != nil else {
+            return .init(exitCode: nil, output: String(localized: "nono is missing: the command was not run."))
+        }
+        let runner = NonoCommandRunner(root: root, purpose: .build)
+        do {
+            let id = try await runner.start(SandboxCommandRequest(command: command, cwd: root,
+                                                                   timeout: .seconds(timeout.map { $0 > 0 ? $0 : 600 } ?? 60)))
+            var state = SandboxCommandState.running
+            while state == .running {
+                try await Task.sleep(for: .milliseconds(300))
+                state = try await runner.state(of: id)
+            }
+            var output = ""
+            var cursor = 0
+            while true {
+                let page = try await runner.output(of: id, from: cursor, limit: 64_000)
+                output += page.text
+                if page.next == cursor || page.next >= page.size { break }
+                cursor = page.next
+            }
+            await runner.remove(id)
+            if case .exited(let code) = state { return .init(exitCode: code, output: output) }
+            return .init(exitCode: nil, output: output)
+        } catch {
+            return .init(exitCode: nil, output: error.localizedDescription)
         }
     }
 

@@ -117,7 +117,7 @@ extension PaneNode: Codable {
 
 /// Ready-made window layouts.
 enum LayoutPreset: String, CaseIterable, Identifiable {
-    case standard = "Standard", focusChat = "Fokus Chat", review = "Review", monitoring = "Monitoring"
+    case standard = "Standard", focusChat = "Fokus Chat", review = "Review", monitoring = "Monitoring", specs = "Spec"
     var id: String { rawValue }
 
     var title: String {
@@ -126,6 +126,7 @@ enum LayoutPreset: String, CaseIterable, Identifiable {
         case .focusChat: String(localized: "Focus on chat")
         case .review: String(localized: "Review")
         case .monitoring: String(localized: "Monitoring")
+        case .specs: String(localized: "Spec-driven")
         }
     }
 
@@ -135,6 +136,7 @@ enum LayoutPreset: String, CaseIterable, Identifiable {
         case .focusChat: "bubble.left.and.bubble.right"
         case .review: "doc.text.magnifyingglass"
         case .monitoring: "gauge.with.dots.needle.67percent"
+        case .specs: "list.bullet.clipboard"
         }
     }
 
@@ -161,6 +163,12 @@ enum LayoutPreset: String, CaseIterable, Identifiable {
             tree = split(.horizontal, [leaf(.sessions),
                                        split(.vertical, [leaf(.pipelines), leaf(.tests)], [0.55, 0.45]),
                                        leaf(.chat)], [0.22, 0.43, 0.35])
+        case .specs:
+            // Spec-driven development: the spec (requirements → design → tasks) next to the
+            // agent that writes and implements it, its hooks, and Git to review what it changed.
+            tree = split(.horizontal, [leaf(.sessions), leaf(.chat),
+                                       split(.vertical, [leaf(.specs), leaf(.hooks), leaf(.git)], [0.5, 0.22, 0.28])],
+                         [0.16, 0.38, 0.46])
         }
         return (tree, weights)
     }

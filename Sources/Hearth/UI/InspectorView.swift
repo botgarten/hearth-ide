@@ -251,6 +251,8 @@ struct PaneView: View {
         case .tests: TestsView(root: root)
         case .architecture: ArchitectureView(root: root)
         case .build: BuildDeployView(root: root)
+        case .specs: SpecsView(root: root)
+        case .hooks: HooksView(root: root)
         case .sessions, .chat, .terminal, .journal: EmptyView()
         }
     }

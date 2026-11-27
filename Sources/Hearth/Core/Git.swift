@@ -6,6 +6,8 @@ enum InspectorTab: String, CaseIterable, Identifiable, Codable, Sendable {
     case terminal = "Terminal"
     case journal = "Journal"
     case build = "Build & Deployment"
+    case specs = "Specs"
+    case hooks = "Agent Hooks"
 
     /// Tabs that show files of the selected workspace (need a sandbox/session).
     var needsWorkspace: Bool { self != .sessions && self != .chat && self != .terminal && self != .journal }
@@ -24,6 +26,8 @@ enum InspectorTab: String, CaseIterable, Identifiable, Codable, Sendable {
         case .terminal: String(localized: "Terminal")
         case .journal: String(localized: "Overview")
         case .build: String(localized: "Build & Deployment")
+        case .specs: String(localized: "Specs")
+        case .hooks: String(localized: "Agent Hooks")
         }
     }
     var symbol: String {
@@ -39,6 +43,8 @@ enum InspectorTab: String, CaseIterable, Identifiable, Codable, Sendable {
         case .preview: "doc.text.magnifyingglass"
         case .architecture: "point.3.connected.trianglepath.dotted"
         case .build: "hammer"
+        case .specs: "list.bullet.clipboard"
+        case .hooks: "bolt.horizontal"
         }
     }
 }
