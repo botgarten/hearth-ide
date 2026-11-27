@@ -1,6 +1,6 @@
 # Hearth IDE – Änderungen
 
-## Unveröffentlicht
+## 0.14.0 · 2026-11-27
 
 - **Eigene Layouts speichern:** Im Menü „Layout“ speichert „Aktuelles Layout speichern…“ die aktuelle Anordnung der Bereiche samt ihrer Größen unter einem Namen. Gespeicherte Layouts stehen unter „Eigene Layouts“ und lassen sich per Klick wiederherstellen, auch über Search Everywhere („Layout: <Name>“). Ein bereits vorhandener Name ersetzt das Layout, „Gespeichertes Layout löschen“ entfernt es wieder. Die Layouts bleiben über Neustarts erhalten.
 
