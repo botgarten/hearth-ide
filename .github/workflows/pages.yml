@@ -24,6 +24,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      # Pages lets browsers cache files for 10 minutes: tag the CSS/JS links with the
+      # commit, so a new deploy is picked up at once instead of mixing old and new files.
+      - name: Version asset links
+        run: |
+          v="${GITHUB_SHA::8}"
+          find site -name '*.html' -exec sed -i "s/?v=dev/?v=$v/g" {} +
+          sed -i "s/?v=dev/?v=$v/g" site/assets/site.js
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

@@ -168,7 +168,7 @@
   }
   if (heroRing && webgl()) {
     heroRing.classList.add("is-3d");
-    import("./hero3d.js")
+    import("./hero3d.js?v=dev")
       .then((m) => m.start(heroRing, { stones: T.stones, reduce, lang: LANG }))
       .catch((e) => { console.warn("3D hero failed, using 2D", e); heroRing.classList.remove("is-3d"); start2D(); });
   } else if (heroRing) {
