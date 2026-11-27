@@ -1,6 +1,6 @@
 # Hearth IDE – Änderungen
 
-## Unveröffentlicht
+## 0.15.0 · 2026-11-27
 
 - **Spec-getriebene Entwicklung (wie Kiro):** Neuer Bereich „Specs“ und neues Layout „Spec-getrieben“ (Sitzungen · Chat · Specs über Git). Eine Spec führt ein Feature durch vier Schritte: **Anforderungen** (User Stories mit Akzeptanzkriterien in EARS-Notation) → **Design** → **Aufgaben** (Checkliste mit Verweisen auf die Anforderungen) → **Umsetzung**. Der Agent der gewählten Sitzung schreibt jedes Dokument, du prüfst es im Bereich und gibst es frei („Freigeben → Design“); erst die Freigabe schaltet den nächsten Schritt frei, und der Agent schreibt das nächste Dokument. „Überarbeiten…“ schickt Feedback an den Agenten. Wird ein freigegebenes Dokument später geändert, zeigt Hearth „Seit der Freigabe geändert“. In der Umsetzung startet ▶ eine einzelne Aufgabe (der Agent hakt sie danach in `tasks.md` ab) oder alle offenen nacheinander, mit Fortschritt; zum Schluss prüft der Agent die Umsetzung gegen alle Akzeptanzkriterien. Abhaken ändert die Freigabe nicht.
   Specs liegen im Projekt unter `.hearth/specs/<name>/` (`requirements.md`, `design.md`, `tasks.md`, Freigaben in `spec.json`), funktionieren also mit jeder Agent-CLI und lassen sich versionieren; Kiro-Specs aus `.kiro/specs/` werden mit angezeigt. Steering-Dokumente in `.hearth/steering/` (Produkt, Technik, Struktur) kann der Agent anlegen; jeder Spec-Auftrag verweist darauf. Die Dokumente entstehen in der Sprache der App.
