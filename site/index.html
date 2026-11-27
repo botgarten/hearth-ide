@@ -26,12 +26,12 @@
   <header class="top">
     <a class="mark" href="./" aria-label="Hearth IDE – home">
       <img src="assets/hearth-icon.webp" alt="" width="36" height="36">
-      Hearth IDE <span class="version">v0.15</span>
+      Hearth IDE <span class="version">v0.16</span>
     </a>
     <nav aria-label="Page sections">
+      <a href="#specs">Specs &amp; hooks</a>
       <a href="#ring">What’s blocked</a>
       <a href="#agents">Agents</a>
-      <a href="#specs">Specs &amp; hooks</a>
       <a href="#how">How it works</a>
       <a class="gh" href="https://github.com/botgarten/hearth-ide">GitHub</a>
       <a class="lang" href="de/" hreflang="de" lang="de">Deutsch</a>
@@ -41,8 +41,9 @@
   <main>
     <div class="hero">
       <div class="pitch">
+        <a class="news" href="#specs"><span class="chip">New</span> Guided spec mode: from idea to shipped code <span aria-hidden="true">→</span></a>
         <h1>Your agent. Your plan. <span class="lit">Our ring of fire.</span></h1>
-        <p class="lede"><strong>Claude Code, Codex, Copilot &amp; co.</strong> run on your Mac just like before – only inside a sandbox that keeps your keys, your home folder and unknown hosts out.</p>
+        <p class="lede"><strong>Claude Code, Codex, Copilot &amp; co.</strong> run on your Mac just like before – only inside a sandbox that keeps your keys, your home folder and unknown hosts out. And it guides them from spec to shipped code.</p>
 
         <div class="install" data-install>
           <code><span class="prompt">$</span><span data-cmd>curl -fsSL https://<wbr>github.com/<wbr>botgarten/<wbr>hearth-ide/<wbr>releases/<wbr>latest/<wbr>download/<wbr>install.sh <wbr>| bash</span></code>
@@ -54,7 +55,7 @@
         </div>
 
         <ul class="facts" aria-label="Key facts">
-          <li><b>v0.15</b> early release</li>
+          <li><b>v0.16</b> early release</li>
           <li>macOS <b>14+</b></li>
           <li><b>Apple Silicon</b></li>
           <li>License <b>MIT</b></li>
@@ -68,13 +69,70 @@
       </div>
 
       <div class="ring" data-ring aria-label="A ring of stones made of sandbox rules around the agent’s fire. Every stone is a block.">
+        <svg class="stones back" data-stones-back viewBox="0 0 1000 860" aria-hidden="true"></svg>
         <canvas data-fire aria-hidden="true"></canvas>
-        <svg class="stones" data-stones viewBox="0 0 1000 860" role="list"></svg>
+        <svg class="stones front" data-stones viewBox="0 0 1000 860" aria-hidden="true"></svg>
+        <ul class="sr-only" data-rules aria-label="Sandbox rules around the agent"></ul>
         <div class="agent-name" data-agent aria-hidden="true">claude</div>
         <div class="inside-label"><code>~/your-project</code><span>read + write</span></div>
         <div class="rule-tip" data-tip aria-hidden="true"></div>
       </div>
     </div>
+
+    <section id="specs" class="specs" aria-labelledby="specs-h">
+      <div class="ember-light" style="right:-18rem;top:3rem" aria-hidden="true"></div>
+      <p class="eyebrow">New in v0.16 · spec-driven development</p>
+      <h2 id="specs-h">Specs first. <span class="lit">Then code.</span></h2>
+      <p class="section-lede">Hearth takes your agent from an idea to shipped code in four steps. Each step is a document you read and approve before the next one opens. Choose guided if you want a coach, or free if you know the way.</p>
+
+      <ol class="journey" data-phases>
+        <li><span class="node" aria-hidden="true"></span><span class="file">requirements.md</span><h3>Requirements</h3><p>User stories and acceptance criteria in EARS: <code>WHEN … THEN the system SHALL …</code></p><span class="gate">you approve</span></li>
+        <li><span class="node" aria-hidden="true"></span><span class="file">design.md</span><h3>Design</h3><p>Architecture, interfaces, data, errors and tests, built on the approved requirements.</p><span class="gate">you approve</span></li>
+        <li><span class="node" aria-hidden="true"></span><span class="file">tasks.md</span><h3>Tasks</h3><p>Small coding steps, each linked to the criteria it fulfils.</p><span class="gate">you approve</span></li>
+        <li><span class="node" aria-hidden="true"></span><span class="file">▶ start task</span><h3>Implementation</h3><p>One task at a time, ticked off as it lands, then checked against every criterion.</p></li>
+      </ol>
+
+      <div class="spec-duo">
+        <figure class="shot">
+          <div class="shot-frame">
+            <img src="assets/spec-review.webp" width="1120" height="1350" loading="lazy" decoding="async"
+                 alt="Guided spec mode, step 1: a quality check flags an untestable criterion and two open questions, each with a button for the agent, above the requirements and a review checklist.">
+            <span class="pin q">Quality check</span>
+            <span class="pin doc">Read, revise, approve</span>
+          </div>
+          <figcaption>Review: Hearth checks each document before you approve it.</figcaption>
+        </figure>
+        <figure class="shot">
+          <div class="shot-frame">
+            <img src="assets/spec-build.webp" width="1120" height="1300" loading="lazy" decoding="async"
+                 alt="Guided spec mode, step 4: all documents approved, a progress ring at 33 percent, the next task with a start button, and the task list.">
+            <span class="pin prog">Progress &amp; coverage</span>
+            <span class="pin next">Up next</span>
+          </div>
+          <figcaption>Build: the next task, progress and which criteria are already met.</figcaption>
+        </figure>
+      </div>
+
+      <h3 class="edges-title">What makes it more than a template.</h3>
+      <ul class="roster edges">
+        <li><span class="who">Quality check</span><span class="login">Untestable criteria, missing stories, open questions, requirements no task covers. Each finding comes with “Let the agent fix it”.</span></li>
+        <li><span class="who">Coverage</span><span class="login">Every acceptance criterion traced to the tasks that implement it, from planned to done.</span></li>
+        <li><span class="who">Interview first</span><span class="login">The agent reads your code and asks up to five questions before it writes a line.</span></li>
+        <li><span class="who">Three kinds</span><span class="login">Feature, bugfix with a regression guard, refactoring with what must not change.</span></li>
+        <li><span class="who">Guided or free</span><span class="login">A coach with checklists, or every document at once. Switch whenever you like.</span></li>
+        <li><span class="who">Your agent</span><span class="login">Claude Code, Codex, Copilot, OpenCode or Gemini, inside the sandbox. Specs are plain Markdown in your repo, and <code>.kiro/specs</code> works too.</span></li>
+      </ul>
+
+      <h3 class="hooks-title">Agent hooks tend the fire.</h3>
+      <p class="hooks-lede">When a turn ends, Hearth looks at what the agent changed and runs your hooks: a prompt for the agent, or a command in the sandbox.</p>
+      <ul class="hooks">
+        <li><span class="when">Agent saved <code>\.swift$</code></span><span class="then">“Update the tests for these files and run them.”</span></li>
+        <li><span class="when">Agent saved <code>\.tsx?$</code></span><span class="then"><code>npm run lint</code> in the sandbox. If it fails, the output goes back to the agent.</span></li>
+        <li><span class="when">Agent finished its turn</span><span class="then">“Review your diff for bugs, missing tests and leftovers.”</span></li>
+        <li><span class="when">Agent changed <code>requirements.md</code></span><span class="then">“Bring the design and the tasks back in line.”</span></li>
+      </ul>
+      <p class="side-note">Hooks can’t loop: a turn that a hook started never fires hooks. A hook file from a repository, or one the agent wrote, only runs after you allowed exactly that content. Kiro’s <code>.kiro/hooks</code> are read too.</p>
+    </section>
 
     <section id="ring" aria-labelledby="ring-h">
       <div class="ember-light" style="left:-18rem;top:2rem" aria-hidden="true"></div>
@@ -139,46 +197,16 @@
       </figure>
     </section>
 
-    <section id="specs" aria-labelledby="specs-h">
-      <div class="ember-light" style="left:-18rem;top:5rem" aria-hidden="true"></div>
-      <h2 id="specs-h">Specs first. <span class="lit">Then code.</span></h2>
-      <p class="section-lede">The spec mode takes a feature through four steps. Your agent writes each document, you read and approve it, and only then does the next step open. It works like Kiro, but with the agent you already pay for, inside the sandbox.</p>
-      <div class="spec">
-        <ol class="phases" data-phases>
-          <li><span class="file">requirements.md</span><div><h3>Requirements</h3><p>User stories with acceptance criteria in EARS notation: <code>WHEN … THEN the system SHALL …</code></p><span class="gate">you approve</span></div></li>
-          <li><span class="file">design.md</span><div><h3>Design</h3><p>Architecture, components, data, error handling and tests, based on the approved requirements.</p><span class="gate">you approve</span></div></li>
-          <li><span class="file">tasks.md</span><div><h3>Tasks</h3><p>Small coding steps, each linked to the criteria it covers.</p><span class="gate">you approve</span></div></li>
-          <li><span class="file">▶ run task</span><div><h3>Implementation</h3><p>The agent works through one task at a time and ticks it off. At the end it checks the code against every criterion.</p></div></li>
-        </ol>
-        <figure class="shot spec-shot">
-          <div class="shot-frame">
-            <img src="assets/hearth-specs.webp" width="920" height="800" loading="lazy" decoding="async"
-                 alt="The Specs pane: requirements, design and tasks approved, the implementation step at 2 of 6 tasks, each with its linked requirements and a run button.">
-          </div>
-          <figcaption>A real screenshot of the Specs pane. Edit an approved document and Hearth asks for another approval.</figcaption>
-        </figure>
-      </div>
-
-      <h3 class="hooks-title">Agent hooks tend the fire.</h3>
-      <p class="hooks-lede">When a turn ends, Hearth looks at what the agent changed and runs your hooks: a prompt for the agent, or a command in the sandbox.</p>
-      <ul class="hooks">
-        <li><span class="when">Agent saved <code>\.swift$</code></span><span class="then">“Update the tests for these files and run them.”</span></li>
-        <li><span class="when">Agent saved <code>\.tsx?$</code></span><span class="then"><code>npm run lint</code> in the sandbox. If it fails, the output goes back to the agent.</span></li>
-        <li><span class="when">Agent finished its turn</span><span class="then">“Review your diff for bugs, missing tests and leftovers.”</span></li>
-        <li><span class="when">Agent changed <code>requirements.md</code></span><span class="then">“Bring the design and the tasks back in line.”</span></li>
-      </ul>
-      <p class="side-note">Hooks can’t loop: a turn that a hook started never fires hooks. A hook file from a repository, or one the agent wrote, only runs after you allowed exactly that content. Specs and hooks live in the project as plain files, and Kiro’s <code>.kiro/specs</code> and <code>.kiro/hooks</code> are read too.</p>
-    </section>
-
     <section aria-labelledby="status-h">
-      <h2 id="status-h">Honest status: v0.15.</h2>
+      <h2 id="status-h">Honest status: v0.16.</h2>
       <p class="section-lede">Early, but usable. This is what works today:</p>
       <div class="status">
         <div>
           <h3>Works</h3>
           <ul>
             <li>Agents as a terminal in the chat area</li>
-            <li>Spec mode with approvals and agent hooks</li>
+            <li>Guided spec mode with quality check and coverage</li>
+            <li>Agent hooks, Kiro-compatible</li>
             <li>Inbox with status and notifications</li>
             <li>Build &amp; Deployment and Git in the sandbox</li>
             <li>Resume or start fresh – your choice</li>

@@ -63,15 +63,17 @@
     });
   });
 
-  /* ---------- field stones: a noise surface lit only by the fire ---------- */
+  /* ---------- field stones: smooth slabs with a rim of firelight ---------- */
+  // One stone = soft shadow, a dark body, grain, a heat glow and a rim light. The light
+  // comes from the fire: `light(st, dx, dy)` turns it to wherever the fire is now.
   let stoneId = 0;
   const rand = (seed, i) => ((Math.sin(seed * 91.7 + i * 37.3) * 43758.5453) % 1 + 1) % 1;
   function outline(w, h, seed) {
-    const n = 12, pts = [];
+    const n = 10, pts = [];
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
-      const j = 0.74 + 0.26 * rand(seed, i);
-      const flat = Math.sin(a) > 0.25 ? 0.7 : 1;            // flat resting underside
+      const j = 0.88 + 0.12 * rand(seed, i);
+      const flat = Math.sin(a) > 0.3 ? 0.82 : 1;              // resting underside
       pts.push([Math.cos(a) * w / 2 * j, Math.sin(a) * h / 2 * j * flat]);
     }
     let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
@@ -81,114 +83,134 @@
     }
     return d + "Z";
   }
-  // (lx, ly): the fire's position relative to the stone's centre
-  function stone(parent, { w, h, seed, label, lx, ly, font }) {
+
+  // Shared defs: a grain tile and the shadow blur, in one hidden svg for the whole page.
+  const defs = document.createElementNS(NS, "svg");
+  defs.setAttribute("width", "0"); defs.setAttribute("height", "0"); defs.setAttribute("aria-hidden", "true");
+  defs.style.position = "absolute";
+  defs.innerHTML = `<defs>
+    <filter id="stoneGrainF" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 .9  0 0 0 0 .86  0 0 0 -1.1 .62"/>
+    </filter>
+    <pattern id="stoneGrain" patternUnits="userSpaceOnUse" width="160" height="160">
+      <rect width="160" height="160" filter="url(#stoneGrainF)"/>
+    </pattern>
+    <filter id="stoneShadowF" x="-50%" y="-80%" width="200%" height="260%"><feGaussianBlur stdDeviation="9"/></filter>
+  </defs>`;
+  document.body.appendChild(defs);
+
+  function stone(parent, { w, h, seed, label, font }) {
     const id = "st" + (stoneId++);
     const d = outline(w, h, seed);
-    const len = Math.hypot(lx, ly) || 1, ux = lx / len, uy = ly / len;
-    const relief = (h * (.42 + rand(seed, 5) * .08)).toFixed(1);
-    const light = `<fePointLight x="${lx.toFixed(0)}" y="${ly.toFixed(0)}" z="${(h * 1.25).toFixed(0)}"/>`;
     const g = document.createElementNS(NS, "g");
     g.setAttribute("class", "stone");
     g.innerHTML = `
       <defs>
-        <filter id="${id}f" x="-15%" y="-25%" width="130%" height="150%" primitiveUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-          <!-- height map: a rounded body (blurred outline) roughened by noise -->
-          <feGaussianBlur in="SourceAlpha" stdDeviation="${(h * .22).toFixed(1)}" result="body"/>
-          <feTurbulence type="fractalNoise" baseFrequency="${(0.028 + rand(seed, 3) * .014).toFixed(3)}" numOctaves="4" seed="${seed}" result="rough"/>
-          <feComposite in="body" in2="rough" operator="arithmetic" k2="1" k3=".09" k4="-.045" result="height"/>
-          <!-- colour: mottled stone with fine dark grains -->
-          <feTurbulence type="fractalNoise" baseFrequency="${(0.011 + rand(seed, 7) * .006).toFixed(3)}" numOctaves="3" seed="${seed + 40}" result="mott"/>
-          <feColorMatrix in="mott" type="matrix" values=".42 0 0 0 .26  .36 0 0 0 .22  .36 0 0 0 .24  0 0 0 0 1" result="tone"/>
-          <feTurbulence type="fractalNoise" baseFrequency=".42" numOctaves="1" seed="${seed + 90}" result="grain"/>
-          <feComponentTransfer in="grain" result="specks"><feFuncR type="discrete" tableValues=".5 1 1 1 1 1 1 .78"/><feFuncG type="discrete" tableValues=".5 1 1 1 1 1 1 .78"/><feFuncB type="discrete" tableValues=".5 1 1 1 1 1 1 .78"/><feFuncA type="linear" slope="0" intercept="1"/></feComponentTransfer>
-          <feComposite in="tone" in2="specks" operator="arithmetic" k1="1" result="albedo"/>
-          <!-- firelight: diffuse plus a soft sheen on the side facing the flames -->
-          <feDiffuseLighting in="height" surfaceScale="${relief}" diffuseConstant="1" lighting-color="#ffd8b4" result="diff">${light}</feDiffuseLighting>
-          <feSpecularLighting in="height" surfaceScale="${relief}" specularConstant=".32" specularExponent="18" lighting-color="#ffae70" result="spec">${light}</feSpecularLighting>
-          <feComposite in="albedo" in2="diff" operator="arithmetic" k1="1.12" k2=".17" result="lit"/>
-          <feComposite in="spec" in2="lit" operator="arithmetic" k2=".38" k3="1" result="sheen"/>
-          <feComposite in="sheen" in2="SourceAlpha" operator="in"/>
-        </filter>
-        <linearGradient id="${id}shade" gradientUnits="userSpaceOnUse" x1="${(ux * w * .5).toFixed(0)}" y1="${(uy * h * .5).toFixed(0)}" x2="${(-ux * w * .5).toFixed(0)}" y2="${(-uy * h * .5).toFixed(0)}">
-          <stop offset="0" stop-color="#0e0a12" stop-opacity="0"/><stop offset=".6" stop-color="#0e0a12" stop-opacity=".15"/><stop offset="1" stop-color="#0e0a12" stop-opacity=".55"/>
+        <linearGradient id="${id}body" gradientUnits="userSpaceOnUse" x1="0" y1="${-h / 2}" x2="0" y2="${h / 2}">
+          <stop offset="0" stop-color="#6e5459"/><stop offset=".45" stop-color="#3a2b31"/><stop offset="1" stop-color="#17101a"/>
         </linearGradient>
-        <radialGradient id="${id}heat" gradientUnits="userSpaceOnUse" cx="${(ux * w * .45).toFixed(0)}" cy="${(uy * h * .45).toFixed(0)}" r="${(w * .55).toFixed(0)}">
-          <stop offset="0" stop-color="#ff7a2a" stop-opacity=".34"/><stop offset=".7" stop-color="#ff5a1f" stop-opacity="0"/>
+        <linearGradient id="${id}rim" gradientUnits="userSpaceOnUse" x1="0" y1="${h / 2}" x2="0" y2="${-h / 2}">
+          <stop offset="0" stop-color="#ffb04a" stop-opacity=".95"/><stop offset=".35" stop-color="#ff5a1f" stop-opacity=".35"/><stop offset=".7" stop-color="#ff5a1f" stop-opacity="0"/>
+        </linearGradient>
+        <radialGradient id="${id}heat" gradientUnits="userSpaceOnUse" cx="0" cy="${h / 2}" r="${(w * .62).toFixed(0)}">
+          <stop offset="0" stop-color="#ff7a2a" stop-opacity=".55"/><stop offset=".65" stop-color="#ff5a1f" stop-opacity="0"/>
         </radialGradient>
-        <radialGradient id="${id}hit"><stop offset="0" stop-color="#ffa62b" stop-opacity=".9"/><stop offset=".6" stop-color="#ff5a1f" stop-opacity=".3"/><stop offset="1" stop-color="#c4161c" stop-opacity="0"/></radialGradient>
-        <filter id="${id}blur"><feGaussianBlur stdDeviation="${(h * .12).toFixed(1)}"/></filter>
-        <filter id="${id}soft" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="${(font * .45).toFixed(1)}"/></filter>
         <clipPath id="${id}clip"><path d="${d}"/></clipPath>
       </defs>
-      <ellipse class="hitglow" rx="${(w * .72).toFixed(0)}" ry="${(h * .9).toFixed(0)}" fill="url(#${id}hit)"/>
-      <ellipse cx="${(-ux * h * .35).toFixed(1)}" cy="${(h * .3).toFixed(1)}" rx="${(w * .52).toFixed(0)}" ry="${(h * .26).toFixed(0)}" fill="#050307" opacity=".85" filter="url(#${id}blur)"/>
-      <path class="rock" d="${d}" fill="#7a6470" filter="url(#${id}f)"/>
+      <ellipse class="shadow" cy="${(h * .38).toFixed(1)}" rx="${(w * .5).toFixed(0)}" ry="${(h * .2).toFixed(0)}" fill="#030204" opacity=".9" filter="url(#stoneShadowF)"/>
+      <ellipse class="wave" rx="${(w * .53).toFixed(0)}" ry="${(h * .6).toFixed(0)}" fill="none" stroke="#ff8a3a" stroke-width="2"/>
+      <path class="rock" d="${d}" fill="url(#${id}body)"/>
       <g clip-path="url(#${id}clip)">
-        <rect x="${-w}" y="${-h}" width="${w * 2}" height="${h * 2}" fill="url(#${id}shade)"/>
+        <rect x="${-w}" y="${-h}" width="${w * 2}" height="${h * 2}" fill="url(#stoneGrain)" opacity=".16"/>
         <rect class="heat" x="${-w}" y="${-h}" width="${w * 2}" height="${h * 2}" fill="url(#${id}heat)"/>
+        <path d="${d}" transform="translate(0 ${(-h * .1).toFixed(1)})" fill="none" stroke="#fff" stroke-opacity=".07" stroke-width="${(h * .12).toFixed(1)}"/>
       </g>
-      <ellipse clip-path="url(#${id}clip)" rx="${(label.length * font * .36 + font).toFixed(1)}" ry="${(font * .85).toFixed(1)}" fill="#3f3439" opacity=".78" filter="url(#${id}soft)"/>
+      <path class="rim" d="${d}" fill="none" stroke="url(#${id}rim)" stroke-width="2.4"/>
       <g class="cut" font-size="${font.toFixed(1)}" text-anchor="middle">
-        <text class="recess" y="${(font * .36 - 1.4).toFixed(1)}">${label}</text>
+        <text class="recess" y="${(font * .36 + 1.2).toFixed(1)}">${label}</text>
         <text class="lip" y="${(font * .36).toFixed(1)}">${label}</text>
       </g>`;
     parent.appendChild(g);
-    return g;
+    const grads = { rim: g.querySelector(`#${id}rim`), heat: g.querySelector(`#${id}heat`), body: g.querySelector(`#${id}body`) };
+    return { g, grads, w, h };
   }
 
-  /* ---------- the ring (real sandbox rules) ---------- */
+  // Turns a stone's light towards (dx, dy): the fire relative to the stone's centre.
+  function light(st, dx, dy) {
+    const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, { w, h, grads } = st;
+    grads.rim.setAttribute("x1", (ux * w * .5).toFixed(1)); grads.rim.setAttribute("y1", (uy * h * .5).toFixed(1));
+    grads.rim.setAttribute("x2", (-ux * w * .5).toFixed(1)); grads.rim.setAttribute("y2", (-uy * h * .5).toFixed(1));
+    grads.heat.setAttribute("cx", (ux * w * .42).toFixed(1)); grads.heat.setAttribute("cy", (uy * h * .5).toFixed(1));
+    grads.body.setAttribute("x1", (ux * w * .3).toFixed(1)); grads.body.setAttribute("y1", (uy * h * .5).toFixed(1));
+    grads.body.setAttribute("x2", (-ux * w * .3).toFixed(1)); grads.body.setAttribute("y2", (-uy * h * .5).toFixed(1));
+  }
+
+  /* ---------- the ring (real sandbox rules), slowly circling the fire ---------- */
   const STONES = T.stones;
   const ring = document.querySelector("[data-ring]");
   const svg = document.querySelector("[data-stones]");
+  const svgBack = document.querySelector("[data-stones-back]");
   const tip = document.querySelector("[data-tip]");
-  const cx = 500, cy = 450, rx = 375, ry = 255, fireX = 500, fireY = 450 + 860 * .05;
-  let pinned = null;
+  const rules = document.querySelector("[data-rules]");
+  const cx = 500, cy = 420, rx = 410, ry = 270, fireX = 500, fireY = 470;
+  const ORBIT = 80000;            // ms per turn
+  let pinned = null, orbit = 0;
 
   const ringStones = STONES.map(([label, rule, line], i) => {
-    const a = -Math.PI / 2 + (i + .5) / STONES.length * Math.PI * 2;
-    const x = cx + Math.cos(a) * rx, y = cy + Math.sin(a) * ry;
-    const depth = (Math.sin(a) + 1) / 2;
-    const s = (0.84 + depth * 0.3) * (0.92 + rand(i + 11, 1) * .16);
-    const w = Math.max(210, label.length * 18.5 + 104) * s, h = (100 + rand(i + 3, 2) * 18) * s;
+    const font = 30;
+    const w = label.length * font * .62 + 84, h = 96 + rand(i + 3, 2) * 12;
     const holder = document.createElementNS(NS, "g");
-    holder.setAttribute("transform", `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
-    holder.setAttribute("tabindex", "0");
-    holder.setAttribute("role", "listitem");
-    holder.setAttribute("aria-label", `${label}: ${line}`);
     holder.setAttribute("data-stone-holder", "");
-    const g = stone(holder, { w, h, seed: i + 2, label, lx: fireX - x, ly: fireY - y, font: 25 * s });
-    const st = { holder, g, x, y, w, h, label, rule, line, depth };
-    // While a stone is hovered or focused it owns the tip; sparks leave the ring alone.
-    const hold = () => { pinned = st; g.classList.add("hit"); showTip(st, true); };
-    const release = () => { if (pinned === st) pinned = null; g.classList.remove("hit"); hideTip(); };
+    const st = { holder, label, rule, line, i, x: 0, y: 0, depth: 0, ...stone(holder, { w, h, seed: i + 2, label, font }) };
+    st.g = st.g;
+    const hold = () => { pinned = st; st.g.classList.add("hit"); showTip(st, true); };
+    const release = () => { if (pinned === st) pinned = null; st.g.classList.remove("hit"); hideTip(); };
     holder.addEventListener("mouseenter", hold);
-    holder.addEventListener("focus", hold);
     holder.addEventListener("mouseleave", release);
-    holder.addEventListener("blur", release);
+    rules?.insertAdjacentHTML("beforeend", `<li>${label}: ${line}</li>`);
     return st;
   });
-  ringStones.slice().sort((a, b) => a.depth - b.depth).forEach((s) => svg.appendChild(s.holder));
+
+  function placeStones() {
+    ringStones.forEach((st) => {
+      const a = -Math.PI / 2 + (st.i + .5) / ringStones.length * Math.PI * 2 + orbit;
+      st.x = cx + Math.cos(a) * rx; st.y = cy + Math.sin(a) * ry;
+      st.depth = (Math.sin(a) + 1) / 2;
+      const s = .66 + st.depth * .46;
+      st.holder.setAttribute("transform", `translate(${st.x.toFixed(1)} ${st.y.toFixed(1)}) scale(${s.toFixed(3)})`);
+      st.holder.style.opacity = (.55 + st.depth * .45).toFixed(2);
+      light(st, (fireX - st.x) / s, (fireY - st.y) / s);
+    });
+    // Far stones sit behind the flames, near ones in front; each layer drawn back to front.
+    const sorted = ringStones.slice().sort((a, b) => a.depth - b.depth);
+    sorted.forEach((st) => {
+      const layer = st.depth < .42 ? svgBack : svg;
+      if (st.holder.parentNode !== layer || layer.lastChild !== st.holder) layer.appendChild(st.holder);
+    });
+  }
+  placeStones();
 
   let tipTimer;
   function showTip(st, sticky) {
     tip.innerHTML = `<b>${st.rule}</b>${st.line}`;
     tip.classList.add("show");
     clearTimeout(tipTimer);
-    if (!sticky) tipTimer = setTimeout(hideTip, 4000);
+    if (!sticky) tipTimer = setTimeout(hideTip, 3600);
   }
   function hideTip() { tip.classList.remove("show"); }
 
   /* ---------- the stones that stay outside (below the hero) ---------- */
   document.querySelectorAll("[data-arc] li").forEach((li, i, all) => {
     const label = li.dataset.stone;
-    const w = Math.min(312, Math.max(250, label.length * 19 + 92)), h = 118;
+    const font = 26;
+    const w = Math.min(300, label.length * font * .62 + 64), h = 86;
     const v = document.createElementNS(NS, "svg");
-    v.setAttribute("viewBox", "-160 -66 320 138");
+    v.setAttribute("viewBox", "-160 -60 320 125");
     v.setAttribute("aria-hidden", "true");
     // the fire sits above the middle of the arc: light falls in from that side
     const mid = (all.length - 1) / 2, off = (i - mid) / mid;
-    stone(v, { w, h, seed: i + 21, label, lx: -off * 260, ly: -220, font: 30 });
+    light(stone(v, { w, h, seed: i + 21, label, font }), -off * 260, -220);
     li.prepend(v);
     li.querySelector("p").insertAdjacentHTML("afterbegin", `<span class="sr-only">${label}: </span>`);
   });
@@ -284,13 +306,15 @@
     });
   }
 
+  const FLAME = 1.4;   // flame size relative to the logs' original scale
   function spawnFlame() {
     // tongues: particles born on a few wandering columns; hotter in the middle
     const column = (Math.random() * 7 | 0) - 3;
     const centre = 1 - Math.abs(column) / 4;
-    flames.push({ x: fx() + column * W * .012 + (Math.random() - .5) * W * .014, y: fy() - H * .005,
-      vx: -column * .05 + (Math.random() - .5) * .2, vy: -(1.3 + Math.random() * 1.6) * (.8 + centre * .4), life: 0,
-      max: 30 + Math.random() * 36 * (.6 + centre * .6), r: W * (0.009 + Math.random() * 0.014) * (.8 + centre * .4),
+    const F = FLAME;
+    flames.push({ x: fx() + (column * W * .012 + (Math.random() - .5) * W * .014) * F, y: fy() - H * .005,
+      vx: (-column * .05 + (Math.random() - .5) * .2) * F, vy: -(1.3 + Math.random() * 1.6) * (.8 + centre * .4) * F, life: 0,
+      max: 30 + Math.random() * 36 * (.6 + centre * .6), r: W * (0.009 + Math.random() * 0.014) * (.8 + centre * .4) * F,
       heat: .62 + centre * .3 + Math.random() * .08, col: column, wob: Math.random() * 6 });
   }
   function spawnSpark(target) {
@@ -307,13 +331,15 @@
   // one 60 Hz simulation step
   function simulate() {
     step++; simTime += 1000 / 60;
+    if (!pinned) orbit += Math.PI * 2 / (ORBIT / (1000 / 60));
     flick += ((0.75 + Math.random() * .5) - flick) * .14;
     for (let i = 0; i < 10; i++) spawnFlame();
     if (step % 4 === 0) smoke.push({ x: fx() + (Math.random() - .5) * W * .04, y: fy() - H * .22, vx: (Math.random() - .5) * .3, vy: -(.45 + Math.random() * .45), life: 0, max: 170, r: W * .03 });
     if (step % 10 === 0) spawnSpark(null);
     if (simTime > nextHit) {
       nextHit = simTime + 5000 + Math.random() * 2000;
-      if (!pinned) spawnSpark(ringStones[(Math.random() * ringStones.length) | 0]);
+      const visibleStones = ringStones.filter((st) => st.depth > .45);
+      if (!pinned && visibleStones.length) spawnSpark(visibleStones[(Math.random() * visibleStones.length) | 0]);
     }
     const t0 = simTime * .004;
     for (let i = flames.length - 1; i >= 0; i--) {
@@ -336,12 +362,19 @@
       let dead = s.life > s.max;
       if (s.target) {
         const k = W / 1000, dx = s.target.x * k - s.x, dy = s.target.y * k - s.y;
-        if (dx * dx + dy * dy < (22 * k) ** 2 || s.life > 120) {
+        if (dx * dx + dy * dy < (34 * k) ** 2 || s.life > 120) {
           dead = true;
           const tg = s.target.g;
-          tg.classList.add("hit"); setTimeout(() => { if (pinned?.g !== tg) tg.classList.remove("hit"); }, 700);
+          tg.classList.remove("hit"); void tg.getBBox(); tg.classList.add("hit");
+          setTimeout(() => { if (pinned?.g !== tg) tg.classList.remove("hit"); }, 900);
           if (!pinned) showTip(s.target, false);
-          for (let j = 0; j < 7; j++) sparks.push({ x: s.x, y: s.y, vx: (Math.random() - .5) * 2.4, vy: -Math.random() * 1.6, g: .06, life: 0, max: 22 + Math.random() * 12, target: null, ember: true });
+          // blocked: the spark breaks on the stone and bounces back towards the fire
+          const bx = fx() - s.x, by = fy() - s.y, bl = Math.hypot(bx, by) || 1;
+          for (let j = 0; j < 9; j++) {
+            const sp = .8 + Math.random() * 1.8;
+            sparks.push({ x: s.x, y: s.y, vx: bx / bl * sp + (Math.random() - .5) * 1.6, vy: by / bl * sp - Math.random() * 1.2,
+                          g: .05, life: 0, max: 20 + Math.random() * 16, target: null, ember: true });
+          }
         }
       }
       if (dead) sparks.splice(i, 1);
@@ -349,6 +382,7 @@
   }
 
   function render() {
+    if (!reduce) placeStones();
     ctx.clearRect(0, 0, W, H);
     root.style.setProperty("--flicker", flick.toFixed(2));
     const floor = ctx.createRadialGradient(fx(), fy() + H * .02, 0, fx(), fy() + H * .02, W * .38);
@@ -364,8 +398,14 @@
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
     });
 
+    // the fire itself is drawn larger around its base point
+    const LS = 1.2;
+    ctx.save();
+    ctx.translate(fx(), fy()); ctx.scale(LS, LS); ctx.translate(-fx(), -fy());
     drawBed(simTime);
     drawLogs(simTime);
+    ctx.restore();
+    ctx.save();
 
     // flames: stretched tongues summed into a buffer, then laid on twice:
     // blurred for the glow, sharp for the licks
@@ -384,9 +424,9 @@
       bctx.restore();
     });
     // white-hot heart at the base
-    const core = bctx.createRadialGradient(fx(), fy() - H * .03, 0, fx(), fy() - H * .03, W * .05);
+    const core = bctx.createRadialGradient(fx(), fy() - H * .04, 0, fx(), fy() - H * .04, W * .07);
     core.addColorStop(0, `rgba(255,226,170,${(.13 * flick).toFixed(3)})`); core.addColorStop(1, "rgba(255,170,60,0)");
-    bctx.fillStyle = core; bctx.beginPath(); bctx.ellipse(fx(), fy() - H * .03, W * .05, W * .07, 0, 0, Math.PI * 2); bctx.fill();
+    bctx.fillStyle = core; bctx.beginPath(); bctx.ellipse(fx(), fy() - H * .04, W * .07, W * .1, 0, 0, Math.PI * 2); bctx.fill();
     bctx.globalCompositeOperation = "source-over";
 
     ctx.globalCompositeOperation = "lighter";
@@ -395,6 +435,8 @@
     ctx.globalAlpha = .7; ctx.drawImage(buf, 0, 0, W, H);
     ctx.filter = "none"; ctx.globalAlpha = 1; ctx.drawImage(buf, 0, 0, W, H);
     ctx.restore();
+    ctx.restore();
+    ctx.globalCompositeOperation = "lighter";
 
     sparks.forEach((s) => {
       const t = s.life / s.max;
@@ -442,6 +484,16 @@
     strokes.forEach((li, i) => setTimeout(() => li.classList.add("on"), 250 + i * 750));
     obs.disconnect();
   }, { threshold: .4 }).observe(document.querySelector("[data-strokes]"));
+
+  /* ---------- sections rise into view ---------- */
+  if (!reduce && "IntersectionObserver" in window) {
+    root.classList.add("js-reveal");
+    const items = document.querySelectorAll("main section > :not(.ember-light):not(.firelight):not(.spec-duo), .spec-duo > .shot");
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => {
+      if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+    }), { rootMargin: "0px 0px -8% 0px" });
+    items.forEach((el) => { if (!el.closest(".hero")) { el.classList.add("reveal"); io.observe(el); } });
+  }
 
   /* ---------- spec phases light up one after another ---------- */
   const phases = [...document.querySelectorAll("[data-phases] li")];

@@ -163,7 +163,7 @@ The page is a night clearing with one fire in it. The fire is the only light sou
 
 Density is low and typographic. Content sits on a 1240px column inside a responsive gutter. Sections are open fields separated by vertical rhythm rather than containers; lists are ruled with ash hairlines, not boxed. Warm colour appears only where the fire would reach: the lit half of the headline, the install control, pins, glows and stone heat. Motion follows the same idea: the fire flickers, sparks rise, embers smoulder, numbers ignite. With reduced motion all of it holds still in its lit state.
 
-The world is procedural rather than illustrated. Fire, smoke and sparks come from a canvas particle loop. Stones are SVG noise surfaces lit by a point light at the fire's position. The only rasters are the app icon and real app screenshots.
+The world is procedural rather than illustrated. Fire, smoke and sparks come from a canvas particle loop. Stones are smooth SVG slabs (dark body, fine grain, a heat glow and a rim of firelight) whose light turns towards the fire as the ring slowly circles it; far stones pass behind the flames, near ones in front. Sparks that hit a stone break on it with a shockwave and fall back towards the fire. The only rasters are the app icon and real app screenshots.
 
 **Key Characteristics:**
 - Night ground (night → night-2 → plum → night-2 → night, a vertical wash over ~220rem) with firelight as the only light.
@@ -329,7 +329,7 @@ All motion uses the `--ease` curve `cubic-bezier(.16, 1, .3, 1)` unless noted.
 ## Do's and Don'ts
 
 ### Do:
-- **Do** light everything from the fire. Each new firelit surface reads `--flicker`, and each new stone gets its point light from the fire's actual position.
+- **Do** light everything from the fire. Each new firelit surface reads `--flicker`, and each new stone points its rim light and heat glow at the fire's actual position (`light()` in site.js).
 - **Do** cut stone labels as recess plus lip on a smoothed face, in Azeret Mono with ligatures off.
 - **Do** put real, literal sandbox targets on stones and real nono rules in tips.
 - **Do** separate list items with hairlines (rule-line opening a list, rule-line-soft between rows) rather than cards.

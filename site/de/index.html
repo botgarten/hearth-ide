@@ -26,12 +26,12 @@
   <header class="top">
     <a class="mark" href="./" aria-label="Hearth IDE – Startseite">
       <img src="../assets/hearth-icon.webp" alt="" width="36" height="36">
-      Hearth IDE <span class="version">v0.15</span>
+      Hearth IDE <span class="version">v0.16</span>
     </a>
     <nav aria-label="Seitenbereiche">
+      <a href="#specs">Specs &amp; Hooks</a>
       <a href="#ring">Was gesperrt ist</a>
       <a href="#agenten">Agenten</a>
-      <a href="#specs">Specs &amp; Hooks</a>
       <a href="#so-gehts">So geht’s</a>
       <a class="gh" href="https://github.com/botgarten/hearth-ide">GitHub</a>
       <a class="lang" href="../" hreflang="en" lang="en">English</a>
@@ -41,8 +41,9 @@
   <main>
     <div class="hero">
       <div class="pitch">
+        <a class="news" href="#specs"><span class="chip">Neu</span> Geführter Spec-Modus: von der Idee zum fertigen Code <span aria-hidden="true">→</span></a>
         <h1>Dein Agent. Dein Abo. <span class="lit">Unser Feuerring.</span></h1>
-        <p class="lede"><strong>Claude Code, Codex, Copilot &amp; Co.</strong> laufen auf deinem Mac wie gewohnt – nur in einer Sandbox, die deine Schlüssel, dein Home und fremde Hosts draußen lässt.</p>
+        <p class="lede"><strong>Claude Code, Codex, Copilot &amp; Co.</strong> laufen auf deinem Mac wie gewohnt – nur in einer Sandbox, die deine Schlüssel, dein Home und fremde Hosts draußen lässt. Und es führt sie von der Spec bis zum fertigen Code.</p>
 
         <div class="install" data-install>
           <code><span class="prompt">$</span><span data-cmd>curl -fsSL https://<wbr>github.com/<wbr>botgarten/<wbr>hearth-ide/<wbr>releases/<wbr>latest/<wbr>download/<wbr>install.sh <wbr>| bash</span></code>
@@ -54,7 +55,7 @@
         </div>
 
         <ul class="facts" aria-label="Eckdaten">
-          <li><b>v0.15</b> frühe Version</li>
+          <li><b>v0.16</b> frühe Version</li>
           <li>macOS <b>14+</b></li>
           <li><b>Apple Silicon</b></li>
           <li>Lizenz <b>MIT</b></li>
@@ -68,13 +69,70 @@
       </div>
 
       <div class="ring" data-ring aria-label="Ein Steinring aus Sandbox-Regeln um das Feuer des Agenten. Jeder Stein ist eine Sperre.">
+        <svg class="stones back" data-stones-back viewBox="0 0 1000 860" aria-hidden="true"></svg>
         <canvas data-fire aria-hidden="true"></canvas>
-        <svg class="stones" data-stones viewBox="0 0 1000 860" role="list"></svg>
+        <svg class="stones front" data-stones viewBox="0 0 1000 860" aria-hidden="true"></svg>
+        <ul class="sr-only" data-rules aria-label="Sandbox-Regeln rund um den Agenten"></ul>
         <div class="agent-name" data-agent aria-hidden="true">claude</div>
         <div class="inside-label"><code>~/dein-projekt</code><span>lesen + schreiben</span></div>
         <div class="rule-tip" data-tip aria-hidden="true"></div>
       </div>
     </div>
+
+    <section id="specs" class="specs" aria-labelledby="specs-h">
+      <div class="ember-light" style="right:-18rem;top:3rem" aria-hidden="true"></div>
+      <p class="eyebrow">Neu in v0.16 · Spec-getriebene Entwicklung</p>
+      <h2 id="specs-h">Erst die Spec. <span class="lit">Dann der Code.</span></h2>
+      <p class="section-lede">Hearth führt deinen Agenten in vier Schritten von der Idee zum fertigen Code. Jeder Schritt ist ein Dokument, das du liest und freigibst, bevor sich der nächste öffnet. Geführt, wenn du einen Coach willst, frei, wenn du den Weg kennst.</p>
+
+      <ol class="journey" data-phases>
+        <li><span class="node" aria-hidden="true"></span><span class="file">requirements.md</span><h3>Anforderungen</h3><p>User Stories und Akzeptanzkriterien in EARS: <code>WHEN … THEN the system SHALL …</code></p><span class="gate">du gibst frei</span></li>
+        <li><span class="node" aria-hidden="true"></span><span class="file">design.md</span><h3>Design</h3><p>Architektur, Schnittstellen, Daten, Fehler und Tests auf Basis der freigegebenen Anforderungen.</p><span class="gate">du gibst frei</span></li>
+        <li><span class="node" aria-hidden="true"></span><span class="file">tasks.md</span><h3>Aufgaben</h3><p>Kleine Programmierschritte, jeder mit den Kriterien verknüpft, die er erfüllt.</p><span class="gate">du gibst frei</span></li>
+        <li><span class="node" aria-hidden="true"></span><span class="file">▶ Aufgabe starten</span><h3>Umsetzung</h3><p>Eine Aufgabe nach der anderen, abgehakt sobald sie steht, zum Schluss gegen jedes Kriterium geprüft.</p></li>
+      </ol>
+
+      <div class="spec-duo">
+        <figure class="shot">
+          <div class="shot-frame">
+            <img src="../assets/spec-review.webp" width="1120" height="1350" loading="lazy" decoding="async"
+                 alt="Geführter Spec-Modus, Schritt 1: Die Qualitätsprüfung meldet ein nicht testbares Kriterium und zwei offene Fragen, jeweils mit Knopf für den Agenten, darunter die Anforderungen und eine Checkliste zur Durchsicht.">
+            <span class="pin q">Qualitätsprüfung</span>
+            <span class="pin doc">Lesen, überarbeiten, freigeben</span>
+          </div>
+          <figcaption>Durchsicht: Hearth prüft jedes Dokument, bevor du es freigibst.</figcaption>
+        </figure>
+        <figure class="shot">
+          <div class="shot-frame">
+            <img src="../assets/spec-build.webp" width="1120" height="1300" loading="lazy" decoding="async"
+                 alt="Geführter Spec-Modus, Schritt 4: alle Dokumente freigegeben, ein Fortschrittsring bei 33 Prozent, die nächste Aufgabe mit Startknopf und die Aufgabenliste.">
+            <span class="pin prog">Fortschritt &amp; Abdeckung</span>
+            <span class="pin next">Als Nächstes</span>
+          </div>
+          <figcaption>Umsetzung: die nächste Aufgabe, der Fortschritt und welche Kriterien schon erfüllt sind.</figcaption>
+        </figure>
+      </div>
+
+      <h3 class="edges-title">Mehr als eine Vorlage.</h3>
+      <ul class="roster edges">
+        <li><span class="who">Qualitätsprüfung</span><span class="login">Nicht testbare Kriterien, fehlende Stories, offene Fragen, Anforderungen ohne Aufgabe. Zu jedem Befund gibt es „Vom Agenten beheben lassen“.</span></li>
+        <li><span class="who">Abdeckung</span><span class="login">Jedes Akzeptanzkriterium mit den Aufgaben, die es umsetzen, von geplant bis erledigt.</span></li>
+        <li><span class="who">Erst fragen</span><span class="login">Der Agent liest deinen Code und stellt bis zu fünf Fragen, bevor er eine Zeile schreibt.</span></li>
+        <li><span class="who">Drei Arten</span><span class="login">Feature, Bugfix mit Regressionsschutz, Refactoring mit dem, was sich nicht ändern darf.</span></li>
+        <li><span class="who">Geführt oder frei</span><span class="login">Ein Coach mit Checklisten oder alle Dokumente auf einmal. Umschalten jederzeit.</span></li>
+        <li><span class="who">Dein Agent</span><span class="login">Claude Code, Codex, Copilot, OpenCode oder Gemini, in der Sandbox. Specs sind einfaches Markdown im Repo, <code>.kiro/specs</code> geht auch.</span></li>
+      </ul>
+
+      <h3 class="hooks-title">Agent Hooks hüten das Feuer.</h3>
+      <p class="hooks-lede">Endet ein Durchgang, schaut Hearth, was der Agent geändert hat, und führt deine Hooks aus: einen Auftrag an den Agenten oder einen Befehl in der Sandbox.</p>
+      <ul class="hooks">
+        <li><span class="when">Agent speichert <code>\.swift$</code></span><span class="then">„Passe die Tests für diese Dateien an und führe sie aus.“</span></li>
+        <li><span class="when">Agent speichert <code>\.tsx?$</code></span><span class="then"><code>npm run lint</code> in der Sandbox. Schlägt es fehl, geht die Ausgabe zurück an den Agenten.</span></li>
+        <li><span class="when">Agent beendet seinen Durchgang</span><span class="then">„Prüfe deinen Diff auf Fehler, fehlende Tests und Reste.“</span></li>
+        <li><span class="when">Agent ändert <code>requirements.md</code></span><span class="then">„Bring Design und Aufgaben wieder in Einklang.“</span></li>
+      </ul>
+      <p class="side-note">Hooks können sich nicht aufschaukeln: Ein Durchgang, den ein Hook gestartet hat, löst nie Hooks aus. Eine Hook-Datei aus einem Repository oder vom Agenten läuft erst, nachdem du genau diesen Inhalt erlaubt hast. Kiros <code>.kiro/hooks</code> werden mitgelesen.</p>
+    </section>
 
     <section id="ring" aria-labelledby="ring-h">
       <div class="ember-light" style="left:-18rem;top:2rem" aria-hidden="true"></div>
@@ -139,46 +197,16 @@
       </figure>
     </section>
 
-    <section id="specs" aria-labelledby="specs-h">
-      <div class="ember-light" style="left:-18rem;top:5rem" aria-hidden="true"></div>
-      <h2 id="specs-h">Erst die Spec. <span class="lit">Dann der Code.</span></h2>
-      <p class="section-lede">Der Spec-Modus führt ein Feature durch vier Schritte. Dein Agent schreibt jedes Dokument, du liest es und gibst es frei, erst dann öffnet sich der nächste Schritt. Das funktioniert wie bei Kiro, aber mit dem Agenten, für den du schon zahlst, und in der Sandbox.</p>
-      <div class="spec">
-        <ol class="phases" data-phases>
-          <li><span class="file">requirements.md</span><div><h3>Anforderungen</h3><p>User Stories mit Akzeptanzkriterien in EARS-Notation: <code>WHEN … THEN the system SHALL …</code></p><span class="gate">du gibst frei</span></div></li>
-          <li><span class="file">design.md</span><div><h3>Design</h3><p>Architektur, Komponenten, Daten, Fehlerbehandlung und Tests auf Basis der freigegebenen Anforderungen.</p><span class="gate">du gibst frei</span></div></li>
-          <li><span class="file">tasks.md</span><div><h3>Aufgaben</h3><p>Kleine Programmierschritte, jeder mit den Kriterien verknüpft, die er abdeckt.</p><span class="gate">du gibst frei</span></div></li>
-          <li><span class="file">▶ run task</span><div><h3>Umsetzung</h3><p>Der Agent setzt eine Aufgabe nach der anderen um und hakt sie ab. Zum Schluss prüft er den Code gegen jedes Kriterium.</p></div></li>
-        </ol>
-        <figure class="shot spec-shot">
-          <div class="shot-frame">
-            <img src="../assets/hearth-specs.webp" width="920" height="800" loading="lazy" decoding="async"
-                 alt="Der Bereich Specs: Anforderungen, Design und Aufgaben freigegeben, die Umsetzung bei 2 von 6 Aufgaben, jede mit ihren Anforderungen und einem Startknopf.">
-          </div>
-          <figcaption>Ein echter Screenshot des Specs-Bereichs. Änderst du ein freigegebenes Dokument, fragt Hearth nach einer neuen Freigabe.</figcaption>
-        </figure>
-      </div>
-
-      <h3 class="hooks-title">Agent Hooks hüten das Feuer.</h3>
-      <p class="hooks-lede">Endet ein Durchgang, schaut Hearth, was der Agent geändert hat, und führt deine Hooks aus: einen Auftrag an den Agenten oder einen Befehl in der Sandbox.</p>
-      <ul class="hooks">
-        <li><span class="when">Agent speichert <code>\.swift$</code></span><span class="then">„Passe die Tests für diese Dateien an und führe sie aus.“</span></li>
-        <li><span class="when">Agent speichert <code>\.tsx?$</code></span><span class="then"><code>npm run lint</code> in der Sandbox. Schlägt es fehl, geht die Ausgabe zurück an den Agenten.</span></li>
-        <li><span class="when">Agent beendet seinen Durchgang</span><span class="then">„Prüfe deinen Diff auf Fehler, fehlende Tests und Reste.“</span></li>
-        <li><span class="when">Agent ändert <code>requirements.md</code></span><span class="then">„Bring Design und Aufgaben wieder in Einklang.“</span></li>
-      </ul>
-      <p class="side-note">Hooks können sich nicht aufschaukeln: Ein Durchgang, den ein Hook gestartet hat, löst nie Hooks aus. Eine Hook-Datei aus einem Repository oder vom Agenten läuft erst, nachdem du genau diesen Inhalt erlaubt hast. Specs und Hooks liegen als einfache Dateien im Projekt, Kiros <code>.kiro/specs</code> und <code>.kiro/hooks</code> werden mitgelesen.</p>
-    </section>
-
     <section aria-labelledby="stand-h">
-      <h2 id="stand-h">Ehrlicher Stand: v0.15.</h2>
+      <h2 id="stand-h">Ehrlicher Stand: v0.16.</h2>
       <p class="section-lede">Früh, aber benutzbar. Das hier stimmt heute:</p>
       <div class="status">
         <div>
           <h3>Läuft</h3>
           <ul>
             <li>Agenten als Terminal in der Chat-Ansicht</li>
-            <li>Spec-Modus mit Freigaben und Agent Hooks</li>
+            <li>Geführter Spec-Modus mit Qualitätsprüfung und Abdeckung</li>
+            <li>Agent Hooks, kompatibel mit Kiro</li>
             <li>Inbox mit Status und Benachrichtigungen</li>
             <li>Build &amp; Deployment und Git in der Sandbox</li>
             <li>Fortsetzen oder neu starten – du entscheidest</li>
